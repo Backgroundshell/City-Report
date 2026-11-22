@@ -19,6 +19,8 @@ DB_PATH = ROOT / "cityreport.db"
 STATIC = ROOT / "static"
 LLM_BASE_URL = os.getenv("LOCAL_LLM_BASE_URL", "http://127.0.0.1:1234/v1").rstrip("/")
 LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "qwen2.5-vl-7b-instruct@q8_0")
+CHAT_LLM_BASE_URL = os.getenv("LOCAL_CHAT_LLM_BASE_URL", LLM_BASE_URL).rstrip("/")
+CHAT_LLM_MODEL = os.getenv("LOCAL_CHAT_LLM_MODEL", "openai/gpt-oss-20b")
 SESSION_SECONDS = 12 * 60 * 60
 CHAT_MESSAGE_LIMIT = 2000
 CHAT_HISTORY_LIMIT = 12
@@ -107,17 +109,19 @@ def rows(query, args=()):
 def overview(user):
     admin = user["role"] == "Administrator"
     reports=rows("SELECT r.*,c.name category_name,c.color category_color,u.name author_name FROM reports r JOIN categories c ON c.id=r.category_id JOIN users u ON u.id=r.user_id" + ("" if admin else " WHERE r.user_id=?") + " ORDER BY r.id DESC", () if admin else (user["id"],))
-    return {"user":user,"reports":reports,"categories":rows("SELECT * FROM categories ORDER BY name"),"events":rows("SELECT * FROM audit_log ORDER BY id DESC LIMIT 50") if admin else [],"llm":{"base_url":LLM_BASE_URL,"model":LLM_MODEL},"metrics":{"reports":len(reports),"new":sum(x["status"]=="Nowe" for x in reports),"progress":sum(x["status"]=="W toku" for x in reports),"resolved":sum(x["status"]=="Rozwiązane" for x in reports)}}
+    return {"user":user,"reports":reports,"categories":rows("SELECT * FROM categories ORDER BY name"),"events":rows("SELECT * FROM audit_log ORDER BY id DESC LIMIT 50") if admin else [],"llm":{"base_url":LLM_BASE_URL,"model":LLM_MODEL,"chat":{"base_url":CHAT_LLM_BASE_URL,"model":CHAT_LLM_MODEL}},"metrics":{"reports":len(reports),"new":sum(x["status"]=="Nowe" for x in reports),"progress":sum(x["status"]=="W toku" for x in reports),"resolved":sum(x["status"]=="Rozwiązane" for x in reports)}}
 
-def local_llm(messages, image_data=None):
+def local_llm(messages, image_data=None, *, model=None, base_url=None, max_tokens=400):
+    model = model or LLM_MODEL
+    base_url = (base_url or LLM_BASE_URL).rstrip("/")
     if image_data:
         messages=[*messages[:-1],{"role":"user","content":[{"type":"text","text":messages[-1]["content"]},{"type":"image_url","image_url":{"url":image_data}}]}]
-    payload=json.dumps({"model":LLM_MODEL,"messages":messages,"temperature":0.2,"max_tokens":400}).encode()
-    request=urllib.request.Request(f"{LLM_BASE_URL}/chat/completions",data=payload,headers={"Content-Type":"application/json"},method="POST")
+    payload=json.dumps({"model":model,"messages":messages,"temperature":0.2,"max_tokens":max_tokens}).encode()
+    request=urllib.request.Request(f"{base_url}/chat/completions",data=payload,headers={"Content-Type":"application/json"},method="POST")
     try:
         with urllib.request.urlopen(request,timeout=45) as response: return json.loads(response.read())["choices"][0]["message"]["content"]
     except (urllib.error.URLError,TimeoutError,KeyError,json.JSONDecodeError) as error:
-        raise RuntimeError(f"Lokalny LLM jest niedostępny ({LLM_BASE_URL}). Uruchom serwer i spróbuj ponownie. {error}") from error
+        raise RuntimeError(f"Lokalny LLM jest niedostępny ({base_url}, model: {model}). Uruchom serwer, wczytaj wskazany model i spróbuj ponownie. {error}") from error
 
 class Handler(BaseHTTPRequestHandler):
     def send_json(self,payload,status=200,cookie=None):
@@ -178,11 +182,11 @@ class Handler(BaseHTTPRequestHandler):
             if path=="/api/ai/chat":
                 messages, snapshot = report_chat_messages(data.get("message"), data.get("history", []))
                 try:
-                    answer = local_llm(messages)
+                    answer = local_llm(messages, model=CHAT_LLM_MODEL, base_url=CHAT_LLM_BASE_URL, max_tokens=1600)
                 except RuntimeError as error:
                     return self.send_json({"error":str(error)},503)
                 with db() as c: log_event(c,"AI","chat",None,"Wysłano pytanie do lokalnego LLM")
-                return self.send_json({"answer":answer,"model":LLM_MODEL,
+                return self.send_json({"answer":answer,"model":CHAT_LLM_MODEL,
                     "report_count":snapshot["report_count"],"context_updated_at":snapshot["updated_at"]})
             if path=="/api/ai/describe":
                 answer=local_llm([{"role":"user","content":"Opisz krótko problem widoczny na zdjęciu dla zgłoszenia miejskiego. Zwróć tylko rzeczowy opis po polsku, bez zgadywania lokalizacji ani danych osobowych."}],data.get("image_data"))
@@ -205,6 +209,6 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self,*_): pass
 
 if __name__=="__main__":
-    init_db(); server=ThreadingHTTPServer(("127.0.0.1",8000),Handler); print(f"CityReport działa na http://127.0.0.1:8000 | lokalny LLM: {LLM_BASE_URL} ({LLM_MODEL})")
+    init_db(); server=ThreadingHTTPServer(("127.0.0.1",8000),Handler); print(f"CityReport działa na http://127.0.0.1:8000 | zdjęcia: {LLM_BASE_URL} ({LLM_MODEL}) | czat: {CHAT_LLM_BASE_URL} ({CHAT_LLM_MODEL})")
     try: server.serve_forever()
     except KeyboardInterrupt: server.server_close()

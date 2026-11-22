@@ -175,6 +175,40 @@ class AuthenticationTests(unittest.TestCase):
             self.assertEqual(status, 503)
             self.assertIn("niedostępny", json.loads(body)["error"])
 
+    def test_chat_uses_separate_model_and_server_from_photo_analysis(self):
+        cookie = self.login(admin=True)
+        with patch.multiple(app, LLM_MODEL="vision-model", LLM_BASE_URL="http://vision.test/v1",
+                            CHAT_LLM_MODEL="chat-model", CHAT_LLM_BASE_URL="http://chat.test/v1"), \
+                patch.object(app.urllib.request, "urlopen") as upstream:
+            upstream.return_value.__enter__.return_value.read.return_value = json.dumps({
+                "choices": [{"message": {"content": "Test answer"}}],
+            }).encode()
+            status, _, body = self.request("POST", "/api/ai/chat", {"message": "Summarize reports"}, cookie)
+            self.assertEqual(status, 200, body)
+            self.assertEqual(json.loads(body)["model"], "chat-model")
+            request = upstream.call_args[0][0]
+            self.assertEqual(request.full_url, "http://chat.test/v1/chat/completions")
+            payload = json.loads(request.data)
+            self.assertEqual(payload["model"], "chat-model")
+            self.assertEqual(payload["max_tokens"], 1600)
+            self.assertIsInstance(payload["messages"][-1]["content"], str)
+
+            image = "data:image/png;base64,dGVzdA=="
+            status, _, body = self.request("POST", "/api/ai/describe", {"image_data": image}, cookie)
+            self.assertEqual(status, 200, body)
+            self.assertEqual(json.loads(body)["model"], "vision-model")
+            request = upstream.call_args[0][0]
+            self.assertEqual(request.full_url, "http://vision.test/v1/chat/completions")
+            payload = json.loads(request.data)
+            self.assertEqual(payload["model"], "vision-model")
+            self.assertEqual(payload["messages"][-1]["content"][1]["image_url"]["url"], image)
+
+            status, _, body = self.request("GET", "/api/overview", cookie=cookie)
+            self.assertEqual(status, 200, body)
+            settings = json.loads(body)["llm"]
+            self.assertEqual(settings["model"], "vision-model")
+            self.assertEqual(settings["chat"], {"model": "chat-model", "base_url": "http://chat.test/v1"})
+
     def test_chat_empty_database_and_untrusted_report_content(self):
         with patch.object(app, "rows", return_value=[]):
             messages, snapshot = app.report_chat_messages("Czy są zgłoszenia?", [])

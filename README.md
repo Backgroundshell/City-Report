@@ -33,7 +33,17 @@ $env:LOCAL_LLM_MODEL = "llama3.2-vision"
 python app.py
 ```
 
-Adapter używa `/v1/chat/completions` i obsługuje czat administratora oraz opis zdjęcia. Domyślnie aplikacja łączy się z LM Studio pod `http://127.0.0.1:1234/v1` i używa modelu `qwen2.5-vl-7b-instruct@q8_0`. Powyższy przykład przełącza ją na Ollama. Wybierz nazwę modelu dostępną na swoim serwerze.
+Adapter używa `/v1/chat/completions` i obsługuje czat administratora oraz opis zdjęcia. Domyślnie aplikacja łączy się z LM Studio pod `http://127.0.0.1:1234/v1`. Do zdjęć używa modelu `qwen2.5-vl-7b-instruct@q8_0`, a do czatu oddzielnego modelu `openai/gpt-oss-20b`. Wybierz identyfikatory modeli dostępne na swoim serwerze i wczytaj je w LM Studio.
+
+Model i serwer czatu można ustawić niezależnie od analizy zdjęć:
+
+```powershell
+$env:LOCAL_CHAT_LLM_MODEL = "openai/gpt-oss-20b"
+$env:LOCAL_CHAT_LLM_BASE_URL = "http://127.0.0.1:1234/v1"
+python app.py
+```
+
+`LOCAL_LLM_MODEL` i `LOCAL_LLM_BASE_URL` dotyczą analizy zdjęć. Jeśli nie podasz `LOCAL_CHAT_LLM_BASE_URL`, czat użyje tego samego serwera co zdjęcia, ale swojego modelu. Przy konfiguracji Ollama ustaw także `LOCAL_CHAT_LLM_MODEL` na identyfikator modelu tekstowego dostępnego w Ollama. Po zmianie zmiennych uruchom aplikację ponownie. Aktywny model czatu jest widoczny w panelu Asystenta AI i przy odpowiedziach.
 
 ## Czat administratora
 
@@ -43,7 +53,7 @@ Przy każdym pytaniu backend pobiera wszystkie aktualne zgłoszenia z SQLite i p
 
 Możesz użyć gotowych pytań lub wpisać np. „Czego dotyczą nowe zgłoszenia?”, „Co opisano w zgłoszeniu #1?” albo „Które problemy warto obsłużyć najpierw?”. Priorytety są sugestiami; czat nie zmienia zgłoszeń. Przycisk **Nowa rozmowa** czyści historię w przeglądarce. Historia znika też po odświeżeniu strony. Niedostępność lokalnego modelu jest widoczna w rozmowie i pozwala ponowić pytanie.
 
-Cały zestaw opisów musi mieścić się w kontekście wybranego modelu; aplikacja nie pomija zgłoszeń po cichu. Uruchom serwer LLM i wczytaj model przed użyciem czatu. Dane są wysyłane do serwera wskazanego przez `LOCAL_LLM_BASE_URL`, domyślnie lokalnego.
+Cały zestaw opisów musi mieścić się w kontekście wybranego modelu; aplikacja nie pomija zgłoszeń po cichu. Uruchom serwer LLM i wczytaj model przed użyciem czatu. Dane czatu są wysyłane do serwera wskazanego przez `LOCAL_CHAT_LLM_BASE_URL` (domyślnie `LOCAL_LLM_BASE_URL`), domyślnie lokalnego.
 
 Testy uprawnień, aktualności kontekstu i błędów czatu (bez uruchamiania modelu):
 
