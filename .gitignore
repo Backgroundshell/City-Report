@@ -1,2 +1,3 @@
 /CityReport_Taras_Hnatiuk_51757.pdf
-/tests
+/tests/*
+!/tests/test_auth.py

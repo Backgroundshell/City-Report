@@ -25,7 +25,7 @@ Hasła są przechowywane jako skróty PBKDF2, a sesje korzystają z ciasteczek H
 
 ## Lokalny LLM
 
-AI korzysta wyłącznie z lokalnego, kompatybilnego z OpenAI API serwera. Domyślne ustawienia są przeznaczone dla Ollama:
+AI korzysta z kompatybilnego z OpenAI API serwera. Domyślnie jest to lokalny serwer LM Studio. Przykład konfiguracji dla Ollama:
 
 ```powershell
 $env:LOCAL_LLM_BASE_URL = "http://127.0.0.1:11434/v1"
@@ -33,7 +33,23 @@ $env:LOCAL_LLM_MODEL = "llama3.2-vision"
 python app.py
 ```
 
-Adapter używa `/v1/chat/completions` i obsługuje czat administratora oraz opis zdjęcia. Aplikacja nie wysyła danych do zewnętrznego dostawcy. Dla LM Studio można zmienić adres na `http://127.0.0.1:1234/v1`.
+Adapter używa `/v1/chat/completions` i obsługuje czat administratora oraz opis zdjęcia. Domyślnie aplikacja łączy się z LM Studio pod `http://127.0.0.1:1234/v1` i używa modelu `qwen2.5-vl-7b-instruct@q8_0`. Powyższy przykład przełącza ją na Ollama. Wybierz nazwę modelu dostępną na swoim serwerze.
+
+## Czat administratora
+
+Po zalogowaniu jako administrator otwórz **Asystent AI**. Czat jest ukryty dla mieszkańców, a backend odrzuca ich żądania do `/api/ai/chat` kodem 403 (bez sesji: 401).
+
+Przy każdym pytaniu backend pobiera wszystkie aktualne zgłoszenia z SQLite i przekazuje modelowi ich numery, tytuły, opisy, adresy, współrzędne, kategorie, statusy i daty. Zdjęcia, hasła i dane sesji nie są częścią kontekstu czatu. Model korzysta z ostatnich sześciu wymian rozmowy, a nowe dane zastępują informacje o wcześniejszych statusach.
+
+Możesz użyć gotowych pytań lub wpisać np. „Czego dotyczą nowe zgłoszenia?”, „Co opisano w zgłoszeniu #1?” albo „Które problemy warto obsłużyć najpierw?”. Priorytety są sugestiami; czat nie zmienia zgłoszeń. Przycisk **Nowa rozmowa** czyści historię w przeglądarce. Historia znika też po odświeżeniu strony. Niedostępność lokalnego modelu jest widoczna w rozmowie i pozwala ponowić pytanie.
+
+Cały zestaw opisów musi mieścić się w kontekście wybranego modelu; aplikacja nie pomija zgłoszeń po cichu. Uruchom serwer LLM i wczytaj model przed użyciem czatu. Dane są wysyłane do serwera wskazanego przez `LOCAL_LLM_BASE_URL`, domyślnie lokalnego.
+
+Testy uprawnień, aktualności kontekstu i błędów czatu (bez uruchamiania modelu):
+
+```powershell
+python -m unittest discover -s tests -v
+```
 
 ## Scenariusz prezentacji
 

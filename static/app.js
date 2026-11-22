@@ -10,4 +10,63 @@ $$('[data-view]').forEach(x=>x.onclick=()=>view(x.dataset.view));$$('[data-actio
 function toast(t){let e=$('#toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2500)}
 $('#modal .close').onclick=()=>$('#modal').close();
 function reportModal(){ $('#modal-body').innerHTML=`<div class="modal-inner"><small>NOWE ZGŁOSZENIE</small><h2>Zgłoś problem w mieście</h2><p>Opis możesz wpisać samodzielnie albo zostawić puste pole. Jeśli dodasz zdjęcie, backend poprosi lokalne AI o sugestię, którą możesz zaakceptować lub zmienić.</p><label>Tytuł problemu<input name="title" required placeholder="np. Uszkodzona ławka"></label><label>Kategoria<select name="category_id">${state.categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label><label>Opis <span class="optional">(opcjonalny przy zdjęciu)</span><textarea name="description" id="description" placeholder="Co się stało? Możesz użyć sugestii AI poniżej."></textarea></label><button type="button" class="ai-fill" id="describe">✦ Zaproponuj opis ze zdjęcia</button><label>Adres / lokalizacja<input name="address" required placeholder="ulica i numer"></label><div class="twocol"><label>Szerokość geograficzna<input name="latitude" value="50.0618"></label><label>Długość geograficzna<input name="longitude" value="19.9383"></label></div><label>Zdjęcie problemu<input type="file" accept="image/*" id="photo"></label><input type="hidden" name="photo_data"><input type="hidden" name="photo_name"><button class="primary submit">Wyślij zgłoszenie</button></div>`;$('#modal').showModal();$('#photo').onchange=e=>{let f=e.target.files[0];if(!f)return;let reader=new FileReader();reader.onload=()=>{$('[name=photo_data]').value=reader.result;$('[name=photo_name]').value=f.name};reader.readAsDataURL(f)};$('#describe').onclick=async()=>{let image=$('[name=photo_data]').value;if(!image)return toast('Najpierw wybierz zdjęcie');$('#describe').textContent='AI analizuje zdjęcie...';let r=await api('/api/ai/describe',{image_data:image});let o=await r.json();if(r.ok){$('#description').value=o.description;toast('Sugestia gotowa — możesz ją teraz zmienić')}else toast(o.error);$('#describe').textContent='✦ Zaproponuj opis ze zdjęcia'};$('#modal-form').onsubmit=async e=>{e.preventDefault();let data=Object.fromEntries(new FormData(e.target));let r=await api('/api/reports',data);let o=await r.json();if(r.ok){$('#modal').close();toast(o.ai_generated?'Zgłoszenie zapisane z opisem AI':'Zgłoszenie zapisane');load()}else toast(o.error)}}
-$('#new-report').onclick=reportModal;$('#hero-report').onclick=reportModal;$('#my-report-button').onclick=reportModal;$('#add-category').onclick=()=>{let name=prompt('Nazwa nowej kategorii:');if(name)api('/api/categories',{name}).then(()=>{toast('Kategoria dodana');load()})};$('#chat-form').onsubmit=async e=>{e.preventDefault();let input=$('#chat-input'),msg=input.value;$('#chat-messages').insertAdjacentHTML('beforeend',`<div class="message user"><p>${esc(msg)}</p></div>`);input.value='';let r=await api('/api/ai/chat',{message:msg}),o=await r.json();$('#chat-messages').insertAdjacentHTML('beforeend',`<div class="message bot"><b>Asystent • ${esc(o.model||'lokalny')}</b><p>${esc(o.answer||o.error)}</p></div>`);$('#chat-messages').scrollTop=99999};load();
+$('#new-report').onclick=reportModal;$('#hero-report').onclick=reportModal;$('#my-report-button').onclick=reportModal;$('#add-category').onclick=()=>{let name=prompt('Nazwa nowej kategorii:');if(name)api('/api/categories',{name}).then(()=>{toast('Kategoria dodana');load()})};
+let chatHistory=[];
+let chatBusy=false;
+const chatWelcome='Cześć! Widzę wszystkie zgłoszenia i ich opisy, adresy, kategorie oraz statusy. Mogę wyjaśnić, czego dotyczą, podsumować problemy lub zaproponować priorytety. Zapytaj też o konkretne zgłoszenie, np. #1.';
+function addChatMessage(role,text,label){
+    const element=document.createElement('div');
+    element.className=`message ${role}`;
+    if(label){const heading=document.createElement('b');heading.textContent=label;element.append(heading)}
+    const paragraph=document.createElement('p');paragraph.textContent=text;element.append(paragraph);
+    $('#chat-messages').append(element);
+    element.scrollIntoView({block:'nearest'});
+    return element;
+}
+function resetChat(){
+    if(chatBusy)return;
+    chatHistory=[];
+    $('#chat-messages').replaceChildren();
+    addChatMessage('bot',chatWelcome,'Asystent CityReport');
+    $('#chat-status').textContent='Przy każdym pytaniu pobieram aktualne dane wszystkich zgłoszeń.';
+    $('#chat-input').focus();
+}
+async function sendChat(message){
+    if(chatBusy||state.user?.role!=='Administrator')return;
+    const input=$('#chat-input');
+    const question=message.trim();
+    if(!question)return;
+    if(question.length>2000){toast('Pytanie może mieć maksymalnie 2000 znaków.');return}
+    chatBusy=true;
+    $$('#chat-form button,[data-chat-prompt],#chat-reset').forEach(button=>button.disabled=true);
+    input.disabled=true;
+    addChatMessage('user',question);
+    input.value='';
+    const pending=addChatMessage('bot','Analizuję aktualne zgłoszenia…','Asystent CityReport');
+    $('#chat-messages').setAttribute('aria-busy','true');
+    try{
+        const response=await api('/api/ai/chat',{message:question,history:chatHistory.slice(-12)});
+        const result=await response.json();
+        if(!response.ok)throw new Error(result.error||'Nie udało się uzyskać odpowiedzi.');
+        if(typeof result.answer!=='string'||!result.answer.trim())throw new Error('Model nie zwrócił odpowiedzi. Spróbuj ponownie.');
+        pending.remove();
+        addChatMessage('bot',result.answer,`Asystent • ${result.model}`);
+        chatHistory.push({role:'user',content:question},{role:'assistant',content:result.answer.slice(0,6000)});
+        chatHistory=chatHistory.slice(-12);
+        $('#chat-status').textContent=`Analizowane zgłoszenia: ${result.report_count}. Dane z ${new Date(result.context_updated_at).toLocaleString('pl-PL')}.`;
+    }catch(error){
+        pending.remove();
+        addChatMessage('bot',`${error.message} Możesz ponowić pytanie.`, 'Nie udało się odpowiedzieć');
+        input.value=question;
+    }finally{
+        chatBusy=false;
+        $('#chat-messages').setAttribute('aria-busy','false');
+        $$('#chat-form button,[data-chat-prompt],#chat-reset').forEach(button=>button.disabled=false);
+        input.disabled=false;
+        input.focus();
+    }
+}
+$('#chat-form').onsubmit=event=>{event.preventDefault();sendChat($('#chat-input').value)};
+$$('[data-chat-prompt]').forEach(button=>button.onclick=()=>sendChat(button.dataset.chatPrompt));
+$('#chat-reset').onclick=resetChat;
+load();
