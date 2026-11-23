@@ -3,7 +3,53 @@ async function api(url,data){const response=await fetch(url,{method:'POST',heade
 async function load(){try{const response=await fetch('/api/overview');if(response.status===401){window.location.replace('/login'+location.hash);return}if(!response.ok)throw new Error('Nie udało się wczytać zgłoszeń');state=await response.json();render();renderAccount();renderRoute();document.body.classList.remove('auth-pending')}catch(error){toast(error.message)}}
 function renderAccount(){const user=state.user;const admin=user.role==='Administrator';$('#profile-name').textContent=user.name;$('#profile-role').textContent=user.role;$('#profile-initials').textContent=user.name.split(/\s+/).map(part=>part[0]).slice(0,2).join('');$$('.admin-label,.admin-nav,[data-view="ai"],#view-admin,#view-ai').forEach(element=>element.hidden=!admin);}
 $('#logout').onclick=async()=>{const button=$('#logout');button.disabled=true;try{const response=await api('/api/logout',{});if(!response.ok&&response.status!==401)throw new Error('Nie udało się wylogować. Spróbuj ponownie.');window.location.replace('/login')}catch(error){toast(error.message);button.disabled=false}};
-function render(){let m=state.metrics;$('#llm-name').textContent=state.llm.model;$('#llm-endpoint').textContent=state.llm.chat.base_url;$('#chat-model').textContent=state.llm.chat.model;$('#stats').innerHTML=[['Wszystkie zgłoszenia',m.reports,'Twoje zgłoszenia'],['Nowe',m.new,'czeka na weryfikację'],['W toku',m.progress,'w trakcie obsługi'],['Rozwiązane',m.resolved,'problemów usuniętych']].map(x=>`<div><small>${x[0]}</small><strong>${x[1]}</strong><span>${x[2]}</span></div>`).join('');$('#recent').innerHTML=state.reports.filter(report=>report.user_id===state.user.id).map(card).join('')||'<p class="empty">Nie masz jeszcze zgłoszeń.</p>';if($('#report-grid'))$('#report-grid').innerHTML=state.reports.filter(r=>(filter==='all'||r.status===filter)&&([r.title,r.address,r.category_name].join(' ').toLowerCase().includes(($('#search')?.value||'').toLowerCase()))).map(card).join('');if($('#map'))$('#map').innerHTML=state.reports.map((r,i)=>`<span class="pin p${i}" title="${esc(r.title)}" style="--x:${15+(i*29)%75}%;--y:${25+(i*37)%55}%">●</span>`).join('')+`<div class="map-label">MAPA MIASTA<br><small>${state.reports.length} zgłoszenia</small></div>`;$('#admin-table').innerHTML='<table><thead><tr><th>ID / Problem</th><th>Kategoria</th><th>Status</th></tr></thead><tbody>'+state.reports.map(r=>`<tr><td><b><a class="report-link" href="#/reports/${r.id}">#${r.id} ${esc(r.title)}</a></b><small>${esc(r.address)}</small></td><td>${esc(r.category_name)}</td><td><select class="status" data-id="${r.id}">${['Nowe','W toku','Rozwiązane'].map(s=>`<option ${s===r.status?'selected':''}>${s}</option>`).join('')}</select></td></tr>`).join('')+'</tbody></table>';$('#category-list').innerHTML=state.categories.map(c=>`<div class="category"><i style="background:${c.color}"></i>${esc(c.name)}<small>${state.reports.filter(r=>r.category_id===c.id).length} zgłoszenia</small></div>`).join('');$('#audit-list').innerHTML=state.events.slice(0,8).map(e=>`<div class="audit-row"><b>${esc(e.event_type)}</b><span><b>#${e.id}</b> ${esc(e.details)}</span><small>${new Date(e.created_at).toLocaleString('pl-PL')}</small></div>`).join('');$$('.status').forEach(s=>s.onchange=async e=>{await api(`/api/reports/${e.target.dataset.id}/status`,{status:e.target.value});toast('Status zapisany');load()})}
+function render(){let m=state.metrics;$('#llm-name').textContent=state.llm.model;$('#llm-endpoint').textContent=state.llm.chat.base_url;$('#chat-model').textContent=state.llm.chat.model;$('#stats').innerHTML=[['Wszystkie zgłoszenia',m.reports,'Twoje zgłoszenia'],['Nowe',m.new,'czeka na weryfikację'],['W toku',m.progress,'w trakcie obsługi'],['Rozwiązane',m.resolved,'problemów usuniętych']].map(x=>`<div><small>${x[0]}</small><strong>${x[1]}</strong><span>${x[2]}</span></div>`).join('');$('#recent').innerHTML=state.reports.filter(report=>report.user_id===state.user.id).map(card).join('')||'<p class="empty">Nie masz jeszcze zgłoszeń.</p>';if($('#report-grid'))$('#report-grid').innerHTML=state.reports.filter(r=>(filter==='all'||r.status===filter)&&([r.title,r.address,r.category_name].join(' ').toLowerCase().includes(($('#search')?.value||'').toLowerCase()))).map(card).join('');if($('#map'))$('#map').innerHTML=state.reports.map((r,i)=>`<span class="pin p${i}" title="${esc(r.title)}" style="--x:${15+(i*29)%75}%;--y:${25+(i*37)%55}%">●</span>`).join('')+`<div class="map-label">MAPA MIASTA<br><small>${state.reports.length} zgłoszenia</small></div>`;renderAdminTable();$('#category-list').innerHTML=state.categories.map(c=>`<div class="category"><i style="background:${c.color}"></i>${esc(c.name)}<small>${state.reports.filter(r=>r.category_id===c.id).length} zgłoszenia</small></div>`).join('');$('#audit-list').innerHTML=state.events.slice(0,8).map(e=>`<div class="audit-row"><b>${esc(e.event_type)}</b><span><b>#${e.id}</b> ${esc(e.details)}</span><small>${new Date(e.created_at).toLocaleString('pl-PL')}</small></div>`).join('')}
+function renderAdminTable() {
+    const panel = $('#admin-table');
+    if (state.user.role !== 'Administrator') {
+        panel.replaceChildren();
+        return;
+    }
+    panel.innerHTML = '<table><thead><tr><th>ID / Problem</th><th>Kategoria</th><th>Status</th></tr></thead><tbody>'
+        + state.reports.map(r => `<tr><td><b><a class="report-link" href="#/reports/${r.id}">#${r.id} ${esc(r.title)}</a></b><small>${esc(r.address)}</small></td><td>${esc(r.category_name)}</td><td></td></tr>`).join('')
+        + '</tbody></table>';
+    panel.querySelectorAll('tbody tr').forEach((row, index) => {
+        row.lastElementChild.append(createStatusEditor(state.reports[index]));
+    });
+}
+function createStatusEditor(report) {
+    const select = document.createElement('select');
+    select.className = 'status';
+    select.dataset.id = report.id;
+    select.setAttribute('aria-label', `Status zgłoszenia #${report.id}`);
+    const statuses = ['Nowe', 'W toku', 'Rozwiązane'];
+    let saved = report.status;
+    if (!statuses.includes(saved)) {
+        const previous = new Option(saved || 'Brak danych', saved || '');
+        previous.disabled = true;
+        select.add(previous);
+    }
+    for (const status of statuses) select.add(new Option(status, status));
+    select.value = saved || '';
+    select.onchange = async () => {
+        if (select.disabled || select.value === saved) return;
+        const next = select.value;
+        select.disabled = true;
+        try {
+            const response = await api(`/api/reports/${report.id}/status`, {status:next});
+            if (!response.ok) throw new Error();
+            saved = next;
+            toast('Status zapisany');
+            await load();
+        } catch {
+            select.value = saved || '';
+            toast('Nie udało się zapisać statusu. Spróbuj ponownie.');
+        } finally {
+            select.disabled = false;
+        }
+    };
+    return select;
+}
 function statusBadgeClass(status) {
     if (status === 'W toku') return 'badge progress';
     if (status === 'Rozwiązane') return 'badge done';
@@ -58,12 +104,16 @@ async function showReport(id, signal) {
         document.title = (report.title || label) + ' — CityReport';
         const admin = state.user.role === 'Administrator';
         $('#detail-meta').textContent = admin
-            ? [report.category_name, report.status, report.author_name].filter(Boolean).join(' · ')
+            ? [report.category_name, report.author_name].filter(Boolean).join(' · ')
             : report.category_name || '';
-        $('#detail-status').hidden = admin;
         const status = $('#detail-status-value');
-        status.textContent = report.status || 'Brak danych';
-        status.className = statusBadgeClass(report.status);
+        if (admin) {
+            status.replaceChildren(createStatusEditor(report));
+            status.className = '';
+        } else {
+            status.textContent = report.status || 'Brak danych';
+            status.className = statusBadgeClass(report.status);
+        }
         $('#detail-address').textContent = report.address || 'Brak adresu.';
         $('#detail-description').textContent = report.description || 'Brak opisu.';
         const source = $('#detail-source');
