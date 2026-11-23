@@ -1,20 +1,23 @@
+
 # CityReport
+
+**Language / Język:** [English](README.md) | [Polski](README.pl.md)
 
 CityReport to platforma internetowa do zgłaszania problemów w przestrzeni miejskiej: dziur, niedziałających latarni, uszkodzonych chodników, przepełnionych koszy i innych usterek.
 
 ## Uruchomienie
 
-```powershell
+```bash
 python app.py
 ```
 
-Otwórz http://127.0.0.1:8000.
+Otwórz [http://127.0.0.1:8000](http://127.0.0.1:8000/).
 
 ## Usuwanie zgłoszeń w środowisku deweloperskim
 
 W terminalu w katalogu projektu wybierz jedno z poniższych poleceń.
 
-| Cel | Polecenie |
+| **Cel** | **Polecenie** |
 | --- | --- |
 | Usuń zgłoszenie nr 7 | `python dev.py delete-report 7` |
 | Wyczyść całą listę „Wszystkie zgłoszenia” | `python dev.py delete-all-reports` |
@@ -23,7 +26,7 @@ Zastąp `7` numerem widocznym w panelu obsługi. Polecenie usuwa wybrane zgłosz
 
 ## Usuwanie wpisów z dziennika operacji
 
-| Cel | Polecenie |
+| **Cel** | **Polecenie** |
 | --- | --- |
 | Usuń wpis nr 12 | `python dev.py delete-log-entry 12` |
 | Wyczyść cały „Dziennik operacji” | `python dev.py clear-log` |
@@ -34,10 +37,10 @@ Zastąp `12` numerem widocznym przy treści wpisu w sekcji „Dziennik operacji�
 
 Po otwarciu aplikacji pojawi się ekran logowania. Konta demonstracyjne:
 
-| Rola | E-mail | Hasło |
+| **Rola** | **E-mail** | **Hasło** |
 | --- | --- | --- |
-| Mieszkaniec | jan@cityreport.local | CityReport123! |
-| Administrator | anna@cityreport.local | CityReportAdmin123! |
+| Mieszkaniec | [jan@cityreport.local](mailto:jan@cityreport.local) | CityReport123! |
+| Administrator | [anna@cityreport.local](mailto:anna@cityreport.local) | CityReportAdmin123! |
 
 Możesz uzupełnić formularz przyciskiem w sekcji „Konta demonstracyjne”. Mieszkaniec widzi własne zgłoszenia; administrator ma dostęp do panelu obsługi i asystenta AI. Przycisk „Wyloguj się” kończy sesję. Sesja wygasa po 12 godzinach.
 
@@ -89,7 +92,7 @@ Zwykłe pytania i pozostałe gotowe pytania nadal korzystają z odpowiedzi tekst
 
 Testy uprawnień, aktualności kontekstu i błędów czatu (bez uruchamiania modelu):
 
-```powershell
+```bash
 python -m unittest discover -s tests -v
 ```
 
