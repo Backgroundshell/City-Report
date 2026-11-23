@@ -1,9 +1,15 @@
 let state={};let filter='all';const $=s=>document.querySelector(s);const $$=s=>document.querySelectorAll(s);const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 async function api(url,data){const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});if(response.status===401)window.location.replace('/login');return response}
 async function load(){try{const response=await fetch('/api/overview');if(response.status===401){window.location.replace('/login'+location.hash);return}if(!response.ok)throw new Error('Nie udało się wczytać zgłoszeń');state=await response.json();render();renderAccount();renderRoute();document.body.classList.remove('auth-pending')}catch(error){toast(error.message)}}
-function renderAccount(){const user=state.user;const admin=user.role==='Administrator';$('#profile-name').textContent=user.name;$('#profile-role').textContent=user.role;$('#profile-initials').textContent=user.name.split(/\s+/).map(part=>part[0]).slice(0,2).join('');$$('.admin-label,.admin-nav,[data-view="ai"],#view-admin,#view-ai').forEach(element=>element.hidden=!admin);}
+function renderAccount() {
+    const user = state.user;
+    $('#profile-name').textContent = user.name;
+    $('#profile-role').textContent = user.role;
+    $('#profile-initials').textContent = user.name.split(/\s+/).map(part=>part[0]).slice(0,2).join('');
+    $$('[data-role]').forEach(element => { element.hidden = element.dataset.role !== user.role; });
+}
 $('#logout').onclick=async()=>{const button=$('#logout');button.disabled=true;try{const response=await api('/api/logout',{});if(!response.ok&&response.status!==401)throw new Error('Nie udało się wylogować. Spróbuj ponownie.');window.location.replace('/login')}catch(error){toast(error.message);button.disabled=false}};
-function render(){let m=state.metrics;$('#llm-name').textContent=state.llm.model;$('#llm-endpoint').textContent=state.llm.chat.base_url;$('#chat-model').textContent=state.llm.chat.model;$('#stats').innerHTML=[['Wszystkie zgłoszenia',m.reports,'Twoje zgłoszenia'],['Nowe',m.new,'czeka na weryfikację'],['W toku',m.progress,'w trakcie obsługi'],['Rozwiązane',m.resolved,'problemów usuniętych']].map(x=>`<div><small>${x[0]}</small><strong>${x[1]}</strong><span>${x[2]}</span></div>`).join('');$('#recent').innerHTML=state.reports.filter(report=>report.user_id===state.user.id).map(card).join('')||'<p class="empty">Nie masz jeszcze zgłoszeń.</p>';if($('#report-grid'))$('#report-grid').innerHTML=state.reports.filter(r=>(filter==='all'||r.status===filter)&&([r.title,r.address,r.category_name].join(' ').toLowerCase().includes(($('#search')?.value||'').toLowerCase()))).map(card).join('');if($('#map'))$('#map').innerHTML=state.reports.map((r,i)=>`<span class="pin p${i}" title="${esc(r.title)}" style="--x:${15+(i*29)%75}%;--y:${25+(i*37)%55}%">●</span>`).join('')+`<div class="map-label">MAPA MIASTA<br><small>${state.reports.length} zgłoszenia</small></div>`;renderAdminTable();$('#category-list').innerHTML=state.categories.map(c=>`<div class="category"><i style="background:${c.color}"></i>${esc(c.name)}<small>${state.reports.filter(r=>r.category_id===c.id).length} zgłoszenia</small></div>`).join('');$('#audit-list').innerHTML=state.events.slice(0,8).map(e=>`<div class="audit-row"><b>${esc(e.event_type)}</b><span><b>#${e.id}</b> ${esc(e.details)}</span><small>${new Date(e.created_at).toLocaleString('pl-PL')}</small></div>`).join('')}
+function render(){let m=state.metrics;$('#stats').innerHTML=[['Wszystkie zgłoszenia',m.reports,'Twoje zgłoszenia'],['Nowe',m.new,'czeka na weryfikację'],['W toku',m.progress,'w trakcie obsługi'],['Rozwiązane',m.resolved,'problemów usuniętych']].map(x=>`<div><small>${x[0]}</small><strong>${x[1]}</strong><span>${x[2]}</span></div>`).join('');$('#recent').innerHTML=state.reports.filter(report=>report.user_id===state.user.id).map(card).join('')||'<p class="empty">Nie masz jeszcze zgłoszeń.</p>';if($('#report-grid'))$('#report-grid').innerHTML=state.reports.filter(r=>(filter==='all'||r.status===filter)&&([r.title,r.address,r.category_name].join(' ').toLowerCase().includes(($('#search')?.value||'').toLowerCase()))).map(card).join('');if($('#map'))$('#map').innerHTML=state.reports.map((r,i)=>`<span class="pin p${i}" title="${esc(r.title)}" style="--x:${15+(i*29)%75}%;--y:${25+(i*37)%55}%">●</span>`).join('')+`<div class="map-label">MAPA MIASTA<br><small>${state.reports.length} zgłoszenia</small></div>`;renderAdminTable();$('#category-list').innerHTML=state.categories.map(c=>`<div class="category"><i style="background:${c.color}"></i>${esc(c.name)}<small>${state.reports.filter(r=>r.category_id===c.id).length} zgłoszenia</small></div>`).join('');$('#audit-list').innerHTML=state.events.slice(0,8).map(e=>`<div class="audit-row"><b>${esc(e.event_type)}</b><span><b>#${e.id}</b> ${esc(e.details)}</span><small>${new Date(e.created_at).toLocaleString('pl-PL')}</small></div>`).join('')}
 function renderAdminTable() {
     const panel = $('#admin-table');
     if (state.user.role !== 'Administrator') {
@@ -72,7 +78,8 @@ function renderRoute() {
         return;
     }
     const admin = state.user.role === 'Administrator';
-    previousSection = admin && ['/admin','/ai'].includes(route) ? route.slice(1) : 'home';
+    previousSection = 'home';
+    if (admin) previousSection = route === '/ai' ? 'ai' : 'admin';
     view(previousSection);
     document.title = 'CityReport — problemy w mieście';
 }

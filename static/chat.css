@@ -56,7 +56,6 @@
 .ai-help h3{font-size:1rem}
 .ai-help>div b{font-size:.875rem}
 .ai-help>div p{font-size:.875rem;margin:8px 0 0;line-height:1.6}
-.ai-help>small{display:block;line-height:1.6;overflow-wrap:anywhere;font-size:.75rem}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .chat input:focus-visible,.chat button:focus-visible,.chat-prompts button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 @media(max-width:650px){.chat{height:620px;padding:14px}.chat .message{max-width:96%}.chat form{flex-wrap:wrap}.chat input{flex-basis:100%}.chat form button{width:100%}}

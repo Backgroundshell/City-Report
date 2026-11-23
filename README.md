@@ -63,7 +63,7 @@ $env:LOCAL_CHAT_LLM_BASE_URL = "http://127.0.0.1:1234/v1"
 python app.py
 ```
 
-`LOCAL_LLM_MODEL` i `LOCAL_LLM_BASE_URL` dotyczą analizy zdjęć. Jeśli nie podasz `LOCAL_CHAT_LLM_BASE_URL`, czat użyje tego samego serwera co zdjęcia, ale swojego modelu. Przy konfiguracji Ollama ustaw także `LOCAL_CHAT_LLM_MODEL` na identyfikator modelu tekstowego dostępnego w Ollama. Po zmianie zmiennych uruchom aplikację ponownie. Aktywny model czatu jest widoczny w panelu Asystenta AI i przy odpowiedziach.
+`LOCAL_LLM_MODEL` i `LOCAL_LLM_BASE_URL` dotyczą analizy zdjęć. Jeśli nie podasz `LOCAL_CHAT_LLM_BASE_URL`, czat użyje tego samego serwera co zdjęcia, ale swojego modelu. Przy konfiguracji Ollama ustaw także `LOCAL_CHAT_LLM_MODEL` na identyfikator modelu tekstowego dostępnego w Ollama. Po zmianie zmiennych uruchom aplikację ponownie. Nazwa aktywnego modelu pojawia się przy odpowiedziach asystenta.
 
 Jeśli serwer LM Studio wymaga autoryzacji, ustaw `LOCAL_LLM_API_KEY` przed uruchomieniem aplikacji. Klucz jest wysyłany wyłącznie przez backend w nagłówku `Authorization` i nie trafia do przeglądarki.
 
