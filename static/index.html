@@ -1,4 +1,4 @@
-<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CityReport — problemy w mieście</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/resident.css"><link rel="stylesheet" href="/chat.css"></head><body class="auth-pending">
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CityReport — problemy w mieście</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/resident.css"><link rel="stylesheet" href="/chat.css?v=4"></head><body class="auth-pending">
 <aside><div class="brand"><b>CR</b><strong>CityReport</strong></div><p class="eyebrow">MIESZKANIEC</p><nav><button class="active" data-view="home">⌂ <span>Moje zgłoszenia</span></button><button data-action="new-report">＋ <span>Zgłoś problem</span></button></nav><p class="eyebrow admin-label">ADMINISTRATOR</p><nav class="admin-nav"><button data-view="admin">♙ <span>Panel obsługi</span></button><button data-view="ai">✦ <span>Asystent AI</span><i>LOCAL</i></button></nav><div class="side-bottom"><div class="local"><span></span><div><b>AI lokalne</b><small id="llm-name">sprawdzanie...</small></div></div><div class="profile"><em id="profile-initials"></em><div><b id="profile-name"></b><small id="profile-role"></small></div></div><button type="button" class="logout" id="logout">Wyloguj się <span aria-hidden="true">↗</span></button></div></aside>
 <main><header><div><p class="crumb">CityReport / <b id="crumb">Mapa zgłoszeń</b></p><h1 id="title">Dzień dobry, Jan <span>✦</span></h1></div><div class="actions"><button class="ghost" data-view="ai">✦ Zapytaj AI</button><button class="primary" id="new-report">＋ Zgłoś problem</button></div></header>
 <section id="view-home" class="view"><div class="resident-hero"><div><small>STREFA MIESZKAŃCA</small><h2>Masz problem<br> w swojej okolicy?</h2><p>Dodaj zdjęcie i lokalizację. Możesz opisać problem samodzielnie albo poprosić lokalne AI o propozycję opisu.</p><button class="primary" id="hero-report">＋ Zgłoś problem</button></div><div class="hero-mark">✦</div></div><div class="resident-stats" id="stats"></div><section class="panel my-reports"><div class="panel-head"><div><h3>Moje zgłoszenia</h3><p>Tu sprawdzisz postęp każdej zgłoszonej sprawy.</p></div><button class="primary" id="my-report-button">＋ Dodaj problem</button></div><div id="recent"></div></section></section>
@@ -11,9 +11,28 @@
 <p id="chat-status" role="status">Przy każdym pytaniu pobieram aktualne dane wszystkich zgłoszeń.</p>
 <form id="chat-form"><label class="sr-only" for="chat-input">Pytanie o zgłoszenia</label><input id="chat-input" required maxlength="2000" autocomplete="off" placeholder="np. Czego dotyczą nowe zgłoszenia?"><button class="primary" type="submit">Wyślij</button></form>
 </section><section class="panel ai-help"><h3>Zapytaj o zgłoszenia</h3>
-<div class="chat-prompts"><button type="button" data-chat-prompt="Podsumuj wszystkie zgłoszenia: czego dotyczą, gdzie występują i jaki mają status. Podaj numery zgłoszeń.">Podsumuj wszystkie zgłoszenia</button><button type="button" data-chat-prompt="Które zgłoszenia mają status Nowe i czego dotyczą? Podaj ich numery i adresy.">Pokaż nowe zgłoszenia</button><button type="button" data-chat-prompt="Które nierozwiązane zgłoszenia warto obsłużyć najpierw i dlaczego? Podaj numery i wyraźnie oznacz sugerowane priorytety.">Zaproponuj priorytety</button></div>
+<div class="chat-prompts"><button type="button" data-chat-prompt="Podsumuj wszystkie zgłoszenia: czego dotyczą, gdzie występują i jaki mają status. Podaj numery zgłoszeń.">Podsumuj wszystkie zgłoszenia</button><button type="button" data-chat-prompt="Które zgłoszenia mają status Nowe i czego dotyczą? Podaj ich numery i adresy.">Pokaż nowe zgłoszenia</button><button type="button" data-chat-mode="prioritize" data-chat-prompt="Przeanalizuj wszystkie nierozwiązane zgłoszenia i zaproponuj priorytet dla każdego z nich z krótkim uzasadnieniem.">Zaproponuj priorytety</button></div>
 <div><b>Aktualne informacje</b><p>Asystent czyta wszystkie zgłoszenia z bazy przy każdym pytaniu. W odpowiedzi możesz dopytać o konkretny problem lub numer zgłoszenia.</p></div>
 <div><b>Analiza dla administratora</b><p>Asystent pomaga zrozumieć problemy. Status zgłoszenia zmienisz w panelu obsługi.</p></div>
 <small>Model czatu: <b id="chat-model">sprawdzanie...</b><br>Endpoint: <code id="llm-endpoint">127.0.0.1:1234/v1</code></small>
-</section></div></section></main>
-<dialog id="modal"><form method="dialog" id="modal-form"><button type="button" class="close" aria-label="Zamknij">×</button><div id="modal-body"></div></form></dialog><div id="toast"></div><script src="/app.js"></script></body></html>
+</section></div></section>
+<section id="view-detail" class="view hidden">
+  <a id="detail-back" class="report-link" href="#/home">← Moje zgłoszenia</a>
+  <p id="detail-feedback" role="status"></p>
+  <article id="detail-body" class="panel detail-body" hidden>
+    <div class="detail-copy">
+      <p id="detail-meta" class="detail-meta"></p>
+      <h2>Adres</h2>
+      <p id="detail-address"></p>
+      <h2>Opis zgłoszenia</h2>
+      <small id="detail-source"></small>
+      <p id="detail-description"></p>
+    </div>
+    <section class="detail-photo">
+      <h2>Zdjęcie</h2>
+      <img id="detail-image" alt="Zdjęcie dołączone do zgłoszenia" hidden>
+      <p id="detail-no-photo">Brak zdjęcia.</p>
+    </section>
+  </article>
+</section></main>
+<dialog id="modal"><form method="dialog" id="modal-form"><button type="button" class="close" aria-label="Zamknij">×</button><div id="modal-body"></div></form></dialog><div id="toast"></div><script src="/chat-format.js?v=4"></script><script src="/app.js?v=4"></script></body></html>

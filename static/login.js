@@ -37,7 +37,8 @@ form.addEventListener('submit', async event => {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Nie udało się zalogować. Spróbuj ponownie.');
-    window.location.replace('/');
+    const report = /^#\/reports\/[1-9]\d{0,18}$/.test(location.hash) ? location.hash : '';
+    window.location.replace('/' + report);
   } catch (failure) {
     error.textContent = failure instanceof TypeError ? 'Nie można połączyć się z serwerem. Spróbuj ponownie.' : failure.message;
     error.hidden = false;
