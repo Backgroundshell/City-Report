@@ -13,6 +13,8 @@
 .detail-body h2{font-size:1rem;margin:1.3em 0 .4em}
 .detail-body p{margin:0}
 .detail-meta,#detail-source,#detail-no-photo{color:#526976}
+.detail-body #detail-status{margin-top:8px}
+#detail-status .badge{margin-inline-start:4px;font-size:.875rem}
 #detail-source{font-size:.8rem}
 #detail-source.ai-source{display:inline-block;background:#e4efff;color:#16578d;padding:3px 9px;border-radius:5px;font-weight:600}
 .detail-body #detail-description{margin-top:8px;white-space:pre-wrap}

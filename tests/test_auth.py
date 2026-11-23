@@ -109,6 +109,7 @@ class AuthenticationTests(unittest.TestCase):
         overview = json.loads(body)
         user_id = overview["user"]["id"]
         self.assertTrue(all(report["user_id"] == user_id for report in overview["reports"]))
+        self.assertTrue(all("author_name" not in report for report in overview["reports"]))
         self.assertEqual(overview["events"], [])
         for path in ("/api/categories", "/api/ai/chat", "/api/reports/1/status"):
             self.assertEqual(self.request("POST", path, {}, cookie)[0], 403)
@@ -161,12 +162,21 @@ class AuthenticationTests(unittest.TestCase):
                         **fields, "description": text, "description_source": source, "photo_data": photo
                     }, resident)
                     self.assertEqual(status, 200, body)
-                    path = "/api/reports/" + str(json.loads(body)["id"])
+                    created = json.loads(body)
+                    self.assertNotIn("description_source", created)
+                    self.assertNotIn("ai_generated", created)
+                    path = "/api/reports/" + str(created["id"])
                     for cookie in (resident, admin):
                         status, _, body = self.request("GET", path, cookie=cookie)
                         self.assertEqual(status, 200, body)
                         row = json.loads(body)
-                        self.assertEqual(row["description_source"], expected)
+                        self.assertEqual(row["status"], "Nowe")
+                        if cookie == admin:
+                            self.assertEqual(row["description_source"], expected)
+                            self.assertEqual(row["author_name"], "Jan Nowak")
+                        else:
+                            self.assertNotIn("description_source", row)
+                            self.assertNotIn("author_name", row)
                         self.assertEqual(row["description"], text or suggestion)
                         self.assertEqual(row["photo_data"], photo)
             vision.assert_called_once()

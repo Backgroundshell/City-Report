@@ -288,8 +288,9 @@ def rows(query, args=()):
 
 def overview(user):
     admin = user["role"] == "Administrator"
-    reports=rows("""SELECT r.id,r.user_id,r.category_id,r.title,r.description,r.address,r.latitude,r.longitude,
-        r.status,r.photo_name,r.created_at,r.updated_at,c.name category_name,c.color category_color,u.name author_name
+    author_column = ",u.name author_name" if admin else ""
+    reports=rows(f"""SELECT r.id,r.user_id,r.category_id,r.title,r.description,r.address,r.latitude,r.longitude,
+        r.status,r.photo_name,r.created_at,r.updated_at,c.name category_name,c.color category_color{author_column}
         FROM reports r LEFT JOIN categories c ON c.id=r.category_id JOIN users u ON u.id=r.user_id"""
         + ("" if admin else " WHERE r.user_id=?") + " ORDER BY r.id DESC", () if admin else (user["id"],))
     return {"user":user,"reports":reports,"categories":rows("SELECT * FROM categories ORDER BY name"),"events":rows("SELECT * FROM audit_log ORDER BY id DESC LIMIT 50") if admin else [],"llm":{"base_url":LLM_BASE_URL,"model":LLM_MODEL,"chat":{"base_url":CHAT_LLM_BASE_URL,"model":CHAT_LLM_MODEL}},"metrics":{"reports":len(reports),"new":sum(x["status"]=="Nowe" for x in reports),"progress":sum(x["status"]=="W toku" for x in reports),"resolved":sum(x["status"]=="Rozwiązane" for x in reports)}}
@@ -359,8 +360,9 @@ class Handler(BaseHTTPRequestHandler):
                 if path=="/api/overview": return self.send_json(overview(user))
                 match = re.fullmatch(r"/api/reports/([0-9]{1,19})", path)
                 if match:
-                    reports = rows("""SELECT r.id,r.title,r.address,r.description,r.description_source,
-                        r.photo_data,r.status,c.name category_name,u.name author_name
+                    admin_columns = ",u.name author_name,r.description_source" if user["role"] == "Administrator" else ""
+                    reports = rows(f"""SELECT r.id,r.title,r.address,r.description,
+                        r.photo_data,r.status,c.name category_name{admin_columns}
                         FROM reports r JOIN users u ON u.id=r.user_id LEFT JOIN categories c ON c.id=r.category_id
                         WHERE r.id=? AND (r.user_id=? OR ?='Administrator')""",
                         (match[1], user["id"], user["role"]))
@@ -445,8 +447,10 @@ class Handler(BaseHTTPRequestHandler):
                         log_event(c,"AI","report",cur.lastrowid,"Wygenerowano sugestię opisu zdjęcia podczas tworzenia zgłoszenia")
                     log_event(c,"CREATE","report",cur.lastrowid,f"Utworzono zgłoszenie „{data['title']}”" + (" z opisem AI" if source=="ai" else ""))
                     c.commit()
-                    return self.send_json({"ok":True,"id":cur.lastrowid,"ai_generated":source=="ai","description":description,
-                                           "description_source":source})
+                    result = {"ok":True,"id":cur.lastrowid,"description":description}
+                    if user["role"] == "Administrator":
+                        result.update(ai_generated=source=="ai", description_source=source)
+                    return self.send_json(result)
                 if path.startswith("/api/reports/") and path.endswith("/status"):
                     report_id=int(path.split("/")[3]); status=data.get("status","Nowe"); c.execute("UPDATE reports SET status=?,updated_at=? WHERE id=?",(status,now(),report_id)); log_event(c,"UPDATE","report",report_id,f"Zmieniono status zgłoszenia na „{status}”"); return self.send_json({"ok":True})
                 if path=="/api/categories":
