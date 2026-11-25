@@ -16,6 +16,8 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 from urllib.parse import urlparse
 
+from locations import coordinates, lookup_location
+
 ROOT = Path(__file__).parent
 DB_PATH = ROOT / "cityreport.db"
 STATIC = ROOT / "static"
@@ -337,7 +339,12 @@ class Handler(BaseHTTPRequestHandler):
     def send_json(self,payload,status=200,cookie=None):
         body=json.dumps(payload,ensure_ascii=False).encode(); self.send_response(status); self.send_header("Content-Type","application/json; charset=utf-8"); self.send_header("Content-Length",str(len(body))); self.send_header("Cache-Control","no-store")
         if cookie: self.send_header("Set-Cookie",cookie)
-        self.end_headers(); self.wfile.write(body)
+        try:
+            self.end_headers()
+            self.wfile.write(body)
+        except ConnectionError:
+            # A location lookup can finish after the browser cancels it.
+            return
     def session_token(self):
         cookie = SimpleCookie()
         try: cookie.load(self.headers.get("Cookie", ""))
@@ -361,7 +368,7 @@ class Handler(BaseHTTPRequestHandler):
                 match = re.fullmatch(r"/api/reports/([0-9]{1,19})", path)
                 if match:
                     admin_columns = ",u.name author_name,r.description_source" if user["role"] == "Administrator" else ""
-                    reports = rows(f"""SELECT r.id,r.title,r.address,r.description,
+                    reports = rows(f"""SELECT r.id,r.title,r.address,r.latitude,r.longitude,r.description,
                         r.photo_data,r.status,c.name category_name{admin_columns}
                         FROM reports r JOIN users u ON u.id=r.user_id LEFT JOIN categories c ON c.id=r.category_id
                         WHERE r.id=? AND (r.user_id=? OR ?='Administrator')""",
@@ -374,7 +381,7 @@ class Handler(BaseHTTPRequestHandler):
             if path in ("/login", "/login.html") and user: return self.redirect("/")
         file=(STATIC/("index.html" if path=="/" else "login.html" if path=="/login" else path.lstrip("/"))).resolve()
         if STATIC.resolve() in file.parents and file.is_file():
-            typ={".html":"text/html; charset=utf-8",".css":"text/css; charset=utf-8",".js":"application/javascript; charset=utf-8"}.get(file.suffix,"application/octet-stream"); body=file.read_bytes(); self.send_response(200); self.send_header("Content-Type",typ); self.send_header("Content-Length",str(len(body))); self.send_header("Cache-Control","no-cache"); self.end_headers(); self.wfile.write(body); return
+            typ={".html":"text/html; charset=utf-8",".css":"text/css; charset=utf-8",".js":"application/javascript; charset=utf-8",".png":"image/png"}.get(file.suffix,"application/octet-stream"); body=file.read_bytes(); self.send_response(200); self.send_header("Content-Type",typ); self.send_header("Content-Length",str(len(body))); self.send_header("Cache-Control","no-cache"); self.end_headers(); self.wfile.write(body); return
         self.send_json({"error":"Nie znaleziono zasobu"},404)
     def do_POST(self):
         path=urlparse(self.path).path
@@ -400,6 +407,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"ok":True},cookie="cityreport_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0")
             if (path in ("/api/ai/chat","/api/categories") or (path.startswith("/api/reports/") and path.endswith("/status"))) and user["role"]!="Administrator":
                 return self.send_json({"error":"Ta funkcja jest dostępna dla administratora"},403)
+            if path in ("/api/locations/search", "/api/locations/reverse"):
+                try:
+                    places = lookup_location(data, reverse=path.endswith("/reverse"))
+                except RuntimeError as error:
+                    return self.send_json({"error": str(error)}, 503)
+                return self.send_json({"places": places})
             if path=="/api/ai/chat":
                 mode = data.get("mode", "chat")
                 if mode not in ("chat", "prioritize", "similar"):
@@ -429,6 +442,11 @@ class Handler(BaseHTTPRequestHandler):
             with db() as c:
                 if path=="/api/reports":
                     if not all(data.get(k) for k in ["title","address","category_id"]): return self.send_json({"error":"Tytuł, adres i kategoria są wymagane"},400)
+                    latitude, longitude = data.get("latitude"), data.get("longitude")
+                    if latitude in (None, "") and longitude in (None, ""):
+                        latitude, longitude = None, None
+                    else:
+                        latitude, longitude = coordinates(latitude, longitude)
                     description=(data.get("description") or "").strip()
                     source = data.get("description_source", "manual")
                     if source not in ("manual", "ai", "ai_edited"):
@@ -442,7 +460,7 @@ class Handler(BaseHTTPRequestHandler):
                         latitude,longitude,status,photo_name,photo_data,created_at,updated_at)
                         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                         (user["id"],data["category_id"],data["title"].strip(),description,source,data["address"].strip(),
-                         data.get("latitude"),data.get("longitude"),"Nowe",data.get("photo_name"),data.get("photo_data"),now(),now()))
+                         latitude,longitude,"Nowe",data.get("photo_name"),data.get("photo_data"),now(),now()))
                     if generate_from_photo:
                         log_event(c,"AI","report",cur.lastrowid,"Wygenerowano sugestię opisu zdjęcia podczas tworzenia zgłoszenia")
                     log_event(c,"CREATE","report",cur.lastrowid,f"Utworzono zgłoszenie „{data['title']}”" + (" z opisem AI" if source=="ai" else ""))

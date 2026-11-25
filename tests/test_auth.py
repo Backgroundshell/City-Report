@@ -13,6 +13,7 @@ import urllib.error
 
 import app
 import dev
+import locations
 
 
 class AuthenticationTests(unittest.TestCase):
@@ -121,6 +122,53 @@ class AuthenticationTests(unittest.TestCase):
         with app.db() as connection:
             report = connection.execute("SELECT user_id FROM reports WHERE title='Ownership test'").fetchone()
             self.assertEqual(report["user_id"], user_id)
+
+    def test_location_lookup_and_report_point(self):
+        cookie = self.login()
+        coords = {"latitude": 50.06, "longitude": 19.94}
+        search = {**coords, "query": "Długa 7, Kraków"}
+        feature = {"geometry": {"coordinates": [19.95, 50.07]},
+                   "properties": {"street": "Długa", "housenumber": "7", "city": "Kraków"}}
+        payload = json.dumps({"features": [feature]}).encode()
+        with patch.object(locations, "urlopen", side_effect=lambda *a, **kw: io.BytesIO(payload)) as upstream:
+            for method, data in (("search", search), ("reverse", coords)):
+                path = "/api/locations/" + method
+                self.assertEqual(self.request("POST", path, data)[0], 401)
+                status, _, body = self.request("POST", path, data, cookie)
+                self.assertEqual(status, 200, body)
+                self.assertEqual(json.loads(body)["places"], [
+                    {"address": "Długa 7, Kraków", "latitude": 50.07, "longitude": 19.95}
+                ])
+            self.assertEqual(upstream.call_count, 2)
+            self.assertEqual(self.request("POST", "/api/locations/search", {**coords, "query": " "}, cookie)[0], 400)
+            self.assertEqual(upstream.call_count, 2)
+
+        with patch.object(locations, "urlopen", side_effect=TimeoutError):
+            self.assertEqual(self.request("POST", "/api/locations/reverse", coords, cookie)[0], 503)
+        report = {"title": "Ławka", "description": "Pęknięta deska", "category_id": 1,
+                  "address": "Punkt wskazany na mapie", **coords}
+        status, _, body = self.request("POST", "/api/reports", report, cookie)
+        self.assertEqual(status, 200, body)
+        path = "/api/reports/" + str(json.loads(body)["id"])
+        detail = json.loads(self.request("GET", path, cookie=cookie)[2])
+        for key in ("address", "latitude", "longitude"):
+            self.assertEqual(detail[key], report[key])
+        for invalid in ({"longitude": None}, {"latitude": -91}, {"latitude": True}, {"longitude": "NaN"}):
+            self.assertEqual(self.request("POST", "/api/reports", {**report, **invalid}, cookie)[0], 400)
+
+    def test_reverse_lookup_uses_a_street_address_near_the_pin(self):
+        def lookup(*properties):
+            data = {"features": [{"geometry": {"coordinates": [19.94, 50.06]}, "properties": item}
+                                 for item in properties]}
+            with patch.object(locations, "urlopen", return_value=io.BytesIO(json.dumps(data).encode())):
+                return locations.lookup_location({"latitude": 50.06, "longitude": 19.94}, reverse=True)
+
+        park = {"name": "Planty", "city": "Kraków"}
+        building = {"name": "Sklep", "street": "Długa", "housenumber": "7", "city": "Kraków"}
+        street = {"type": "street", "name": "Długa", "city": "Kraków"}
+        self.assertEqual([p["address"] for p in lookup(park, building, street)], ["Długa 7, Kraków"])
+        self.assertEqual(lookup(park, street)[0]["address"], "Długa, Kraków")
+        self.assertEqual(lookup(park), [])
 
     def test_report_page_permissions_and_photo(self):
         admin = self.login(admin=True)

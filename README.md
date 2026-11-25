@@ -13,6 +13,16 @@ python app.py
 
 Otwórz [http://127.0.0.1:8000](http://127.0.0.1:8000/).
 
+## Lokalizacja zgłoszenia
+
+W formularzu wpisz ulicę i miejscowość, kliknij **Szukaj** i wybierz adres, jeśli pojawi się kilka wyników. Możesz też kliknąć mapę lub wybrać **Użyj mojej lokalizacji (GPS)**. GPS wymaga zgody przeglądarki oraz HTTPS lub localhost. Wskazany punkt można zapisać także wtedy, gdy w pobliżu nie ma adresu. Link w szczegółach zgłoszenia otwiera jego położenie na mapie.
+
+Po wskazaniu punktu formularz wyświetla pobliski adres w polu adresu i przy pinezce. Zgłoszenie zachowuje dokładne położenie wybranego punktu.
+
+W panelu administratora mapa obejmuje zgłoszenia wszystkich mieszkańców. Kliknij pinezkę, aby otworzyć szczegóły zgłoszenia. Liczba na pinezce oznacza kilka zgłoszeń w tym samym miejscu. Zgłoszenia bez zapisanego położenia są dostępne na liście pod mapą.
+
+Mapa pobiera kafelki OpenStreetMap. Backend wysyła wyszukiwany adres lub wybrany punkt do usługi Photon. Własną instancję można wskazać zmienną `CITYREPORT_PHOTON_URL`.
+
 ## Usuwanie zgłoszeń w środowisku deweloperskim
 
 W terminalu w katalogu projektu wybierz jedno z poniższych poleceń.

@@ -1,5 +1,5 @@
 let state={};let filter='all';const $=s=>document.querySelector(s);const $$=s=>document.querySelectorAll(s);const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-async function api(url,data){const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});if(response.status===401)window.location.replace('/login');return response}
+async function api(url,data,signal){const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal});if(response.status===401)window.location.replace('/login');return response}
 async function load(){try{const response=await fetch('/api/overview');if(response.status===401){window.location.replace('/login'+location.hash);return}if(!response.ok)throw new Error('Nie udało się wczytać zgłoszeń');state=await response.json();render();renderAccount();renderRoute();document.body.classList.remove('auth-pending')}catch(error){toast(error.message)}}
 function renderAccount() {
     const user = state.user;
@@ -9,7 +9,7 @@ function renderAccount() {
     $$('[data-role]').forEach(element => { element.hidden = element.dataset.role !== user.role; });
 }
 $('#logout').onclick=async()=>{const button=$('#logout');button.disabled=true;try{const response=await api('/api/logout',{});if(!response.ok&&response.status!==401)throw new Error('Nie udało się wylogować. Spróbuj ponownie.');window.location.replace('/login')}catch(error){toast(error.message);button.disabled=false}};
-function render(){let m=state.metrics;$('#stats').innerHTML=[['Wszystkie zgłoszenia',m.reports,'Twoje zgłoszenia'],['Nowe',m.new,'czeka na weryfikację'],['W toku',m.progress,'w trakcie obsługi'],['Rozwiązane',m.resolved,'problemów usuniętych']].map(x=>`<div><small>${x[0]}</small><strong>${x[1]}</strong><span>${x[2]}</span></div>`).join('');$('#recent').innerHTML=state.reports.filter(report=>report.user_id===state.user.id).map(card).join('')||'<p class="empty">Nie masz jeszcze zgłoszeń.</p>';if($('#report-grid'))$('#report-grid').innerHTML=state.reports.filter(r=>(filter==='all'||r.status===filter)&&([r.title,r.address,r.category_name].join(' ').toLowerCase().includes(($('#search')?.value||'').toLowerCase()))).map(card).join('');if($('#map'))$('#map').innerHTML=state.reports.map((r,i)=>`<span class="pin p${i}" title="${esc(r.title)}" style="--x:${15+(i*29)%75}%;--y:${25+(i*37)%55}%">●</span>`).join('')+`<div class="map-label">MAPA MIASTA<br><small>${state.reports.length} zgłoszenia</small></div>`;renderAdminTable();$('#category-list').innerHTML=state.categories.map(c=>`<div class="category"><i style="background:${c.color}"></i>${esc(c.name)}<small>${state.reports.filter(r=>r.category_id===c.id).length} zgłoszenia</small></div>`).join('');$('#audit-list').innerHTML=state.events.slice(0,8).map(e=>`<div class="audit-row"><b>${esc(e.event_type)}</b><span><b>#${e.id}</b> ${esc(e.details)}</span><small>${new Date(e.created_at).toLocaleString('pl-PL')}</small></div>`).join('')}
+function render(){let m=state.metrics;$('#stats').innerHTML=[['Wszystkie zgłoszenia',m.reports,'Twoje zgłoszenia'],['Nowe',m.new,'czeka na weryfikację'],['W toku',m.progress,'w trakcie obsługi'],['Rozwiązane',m.resolved,'problemów usuniętych']].map(x=>`<div><small>${x[0]}</small><strong>${x[1]}</strong><span>${x[2]}</span></div>`).join('');$('#recent').innerHTML=state.reports.filter(report=>report.user_id===state.user.id).map(card).join('')||'<p class="empty">Nie masz jeszcze zgłoszeń.</p>';if($('#report-grid'))$('#report-grid').innerHTML=state.reports.filter(r=>(filter==='all'||r.status===filter)&&([r.title,r.address,r.category_name].join(' ').toLowerCase().includes(($('#search')?.value||'').toLowerCase()))).map(card).join('');renderAdminTable();$('#category-list').innerHTML=state.categories.map(c=>`<div class="category"><i style="background:${c.color}"></i>${esc(c.name)}<small>${state.reports.filter(r=>r.category_id===c.id).length} zgłoszenia</small></div>`).join('');$('#audit-list').innerHTML=state.events.slice(0,8).map(e=>`<div class="audit-row"><b>${esc(e.event_type)}</b><span><b>#${e.id}</b> ${esc(e.details)}</span><small>${new Date(e.created_at).toLocaleString('pl-PL')}</small></div>`).join('')}
 function renderAdminTable() {
     const panel = $('#admin-table');
     if (state.user.role !== 'Administrator') {
@@ -81,6 +81,7 @@ function renderRoute() {
     previousSection = 'home';
     if (admin) previousSection = route === '/ai' ? 'ai' : 'admin';
     view(previousSection);
+    if (previousSection === 'admin') renderAdminMap(state.reports);
     document.title = 'CityReport — problemy w mieście';
 }
 async function showReport(id, signal) {
@@ -122,6 +123,11 @@ async function showReport(id, signal) {
             status.className = statusBadgeClass(report.status);
         }
         $('#detail-address').textContent = report.address || 'Brak adresu.';
+        const mapLink = $('#detail-map-link');
+        const {latitude, longitude} = report;
+        mapLink.hidden = !hasReportPoint(report);
+        if (mapLink.hidden) mapLink.removeAttribute('href');
+        else mapLink.href = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=18/${latitude}/${longitude}`;
         $('#detail-description').textContent = report.description || 'Brak opisu.';
         const source = $('#detail-source');
         source.hidden = !admin;
@@ -149,7 +155,23 @@ async function showReport(id, signal) {
 }
 window.addEventListener('hashchange', renderRoute);
 $('#modal .close').onclick=()=>$('#modal').close();
-function reportModal(){ $('#modal-body').innerHTML=`<div class="modal-inner"><small>NOWE ZGŁOSZENIE</small><h2>Zgłoś problem w mieście</h2><p>Opis możesz wpisać samodzielnie albo zostawić puste pole. Jeśli dodasz zdjęcie, backend poprosi lokalne AI o sugestię, którą możesz zaakceptować lub zmienić.</p><label>Tytuł problemu<input name="title" required placeholder="np. Uszkodzona ławka"></label><label>Kategoria<select name="category_id">${state.categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label><label>Opis <span class="optional">(opcjonalny przy zdjęciu)</span><textarea name="description" id="description" placeholder="Co się stało? Możesz użyć sugestii AI poniżej."></textarea></label><button type="button" class="ai-fill" id="describe">✦ Zaproponuj opis ze zdjęcia</button><label>Adres / lokalizacja<input name="address" required placeholder="ulica i numer"></label><div class="twocol"><label>Szerokość geograficzna<input name="latitude" value="50.0618"></label><label>Długość geograficzna<input name="longitude" value="19.9383"></label></div><label>Zdjęcie problemu<input type="file" accept="image/*" id="photo"></label><input type="hidden" name="photo_data"><input type="hidden" name="photo_name"><button class="primary submit">Wyślij zgłoszenie</button></div>`;
+function reportModal(){ $('#modal-body').innerHTML=`<div class="modal-inner"><small>NOWE ZGŁOSZENIE</small><h2>Zgłoś problem w mieście</h2><p>Opis możesz wpisać samodzielnie albo zostawić puste pole. Jeśli dodasz zdjęcie, backend poprosi lokalne AI o sugestię, którą możesz zaakceptować lub zmienić.</p><label>Tytuł problemu<input name="title" required placeholder="np. Uszkodzona ławka"></label><label>Kategoria<select name="category_id">${state.categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label><label>Opis <span class="optional">(opcjonalny przy zdjęciu)</span><textarea name="description" id="description" placeholder="Co się stało? Możesz użyć sugestii AI poniżej."></textarea></label><button type="button" class="ai-fill" id="describe">✦ Zaproponuj opis ze zdjęcia</button>
+    <fieldset class="location-picker">
+      <legend>Lokalizacja problemu</legend>
+      <label for="location-address">Adres</label>
+      <div class="address-search">
+        <input id="location-address" maxlength="250" placeholder="np. Długa 7, Kraków" enterkeyhint="search" autocomplete="off">
+        <button type="button" class="ghost" id="location-search">Szukaj</button>
+      </div>
+      <div id="location-results"></div>
+      <button type="button" class="ghost" id="location-gps">Użyj mojej lokalizacji (GPS)</button>
+      <p id="location-help">Możesz też wskazać miejsce na mapie.</p>
+      <span class="sr-only" id="map-keys">Przesuwaj mapę strzałkami. Naciśnij Enter, aby zaznaczyć jej środek.</span>
+      <div id="location-map" role="region" aria-label="Mapa miejsca zgłoszenia" aria-describedby="location-help map-keys"></div>
+      <p id="tile-error" role="status" hidden>Nie udało się wczytać mapy. Możesz wyszukać adres lub użyć GPS.</p>
+      <p id="location-status" role="status"></p>
+    </fieldset>
+    <label>Zdjęcie problemu<input type="file" accept="image/*" id="photo"></label><input type="hidden" name="photo_data"><input type="hidden" name="photo_name"><button class="primary submit">Wyślij zgłoszenie</button></div>`;
     const modal = $('#modal');
     const form = $('#modal-form');
     const photo = $('#photo');
@@ -163,10 +185,11 @@ function reportModal(){ $('#modal-body').innerHTML=`<div class="modal-inner"><sm
     let reading = false;
     let generating = false;
     let saving = false;
+    let resolvingAddress = false;
 
     function updateButtons() {
-        submit.disabled = reading || generating || saving;
-        describe.disabled = submit.disabled;
+        describe.disabled = reading || generating || saving;
+        submit.disabled = describe.disabled || resolvingAddress;
     }
     description.onbeforeinput = event => {
         if (description.selectionStart === 0 && description.selectionEnd === description.value.length
@@ -225,10 +248,12 @@ function reportModal(){ $('#modal-body').innerHTML=`<div class="modal-inner"><sm
     form.onsubmit = async event => {
         event.preventDefault();
         if (submit.disabled) return;
+        const reportLocation = picker.selectedLocation();
+        if (!reportLocation) return;
         saving = true;
         updateButtons();
         try {
-            const data = Object.fromEntries(new FormData(form));
+            const data = {...Object.fromEntries(new FormData(form)), ...reportLocation};
             data.description_source = usingSuggestion
                 ? (data.description.trim() === suggestion ? 'ai' : 'ai_edited') : 'manual';
             const response = await api('/api/reports', data);
@@ -246,8 +271,12 @@ function reportModal(){ $('#modal-body').innerHTML=`<div class="modal-inner"><sm
         }
     };
     modal.showModal();
+    const picker = createLocationPicker(modal, busy => {
+        resolvingAddress = busy;
+        updateButtons();
+    });
 }
-$('#new-report').onclick=reportModal;$('#hero-report').onclick=reportModal;$('#my-report-button').onclick=reportModal;$('#add-category').onclick=()=>{let name=prompt('Nazwa nowej kategorii:');if(name)api('/api/categories',{name}).then(()=>{toast('Kategoria dodana');load()})};
+$('#hero-report').onclick=reportModal;$('#my-report-button').onclick=reportModal;$('#add-category').onclick=()=>{let name=prompt('Nazwa nowej kategorii:');if(name)api('/api/categories',{name}).then(()=>{toast('Kategoria dodana');load()})};
 let chatHistory=[];
 let chatBusy=false;
 let chatRetry=null;
