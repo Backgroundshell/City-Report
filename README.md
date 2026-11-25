@@ -23,6 +23,16 @@ W panelu administratora mapa obejmuje zgłoszenia wszystkich mieszkańców. Klik
 
 Mapa pobiera kafelki OpenStreetMap. Backend wysyła wyszukiwany adres lub wybrany punkt do usługi Photon. Własną instancję można wskazać zmienną `CITYREPORT_PHOTON_URL`.
 
+## Kontakt z miastem — lokalna demonstracja
+
+Administrator ma dodatkową zakładkę **Kontakt z miastem**. Wybierz **Nowa sprawa**, wskaż zgłoszenie mieszkańca, właściwą służbę oraz pierwszą wiadomość. Tę samą sprawę można otworzyć przyciskiem **Kontakt ze służbami miejskimi** w szczegółach zgłoszenia. Każde zgłoszenie ma jedną sprawę; ponowne użycie przycisku otwiera jej historię.
+
+W sprawie zapiszesz kolejne wiadomości i ręcznie dodasz **Odpowiedź służb (demo)**. Możesz zmienić służbę oraz etap: **Otwarta**, **W realizacji**, **Zakończona**. Etapy odpowiadają statusom zgłoszenia **Nowe**, **W toku**, **Rozwiązane** i są synchronizowane w obie strony. Lista obsługuje wyszukiwanie i filtrowanie, a korespondencja pozostaje dostępna po odświeżeniu strony.
+
+To lokalny tryb demonstracyjny: wiadomości nie są wysyłane do urzędu, a odpowiedzi nie pochodzą z zewnętrznej usługi. Dostęp do widoku i endpointów `/api/city/` mają wyłącznie administratorzy. Historia, autorzy wpisów i zmiany etapów są zapisywane w bazie oraz dzienniku operacji. Usunięcie zgłoszenia usuwa też jego sprawę i wiadomości.
+
+Po aktualizacji uruchom ponownie `python app.py` i odśwież stronę. Przy starcie aplikacja dodaje potrzebne tabele bez usuwania istniejących zgłoszeń i kont.
+
 ## Usuwanie zgłoszeń w środowisku deweloperskim
 
 W terminalu w katalogu projektu wybierz jedno z poniższych poleceń.

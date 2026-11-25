@@ -7,6 +7,7 @@ import os
 import re
 import secrets
 import sqlite3
+import sys
 import urllib.error
 import urllib.request
 import unicodedata
@@ -277,11 +278,15 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             case_id INTEGER NOT NULL REFERENCES city_cases(id) ON DELETE CASCADE,
             author_id INTEGER NOT NULL REFERENCES users(id),
+            department TEXT NOT NULL,
             direction TEXT NOT NULL CHECK(direction IN ('outgoing','incoming')),
             body TEXT NOT NULL,created_at TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS city_messages_case_id ON city_messages(case_id,id);
         """)
         c.execute("BEGIN")
+        if "department" not in {r[1] for r in c.execute("PRAGMA table_info(city_messages)")}:
+            c.execute("ALTER TABLE city_messages ADD COLUMN department TEXT")
+            c.execute("UPDATE city_messages SET department=(SELECT department FROM city_cases WHERE id=city_messages.case_id)")
         if "password_hash" not in {r[1] for r in c.execute("PRAGMA table_info(users)")}:
             c.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
         if "description_source" not in {r[1] for r in c.execute("PRAGMA table_info(reports)")}:
@@ -527,6 +532,9 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self,*_): pass
 
 if __name__=="__main__":
+    # Windows can default redirected output to an encoding without Polish letters.
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     init_db(); server=ThreadingHTTPServer(("127.0.0.1",8000),Handler); print(f"CityReport działa na http://127.0.0.1:8000 | zdjęcia: {LLM_BASE_URL} ({LLM_MODEL}) | czat: {CHAT_LLM_BASE_URL} ({CHAT_LLM_MODEL})")
     try: server.serve_forever()
     except KeyboardInterrupt: server.server_close()

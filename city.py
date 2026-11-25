@@ -64,7 +64,7 @@ def get_case(connection, case_id):
         raise CityError("Nie znaleziono sprawy miejskiej.", 404)
     result = dict(row)
     result["messages"] = [dict(message) for message in connection.execute(
-        """SELECT m.id,m.direction,m.body,m.created_at,u.name AS author_name
+        """SELECT m.id,m.direction,m.body,m.department,m.created_at,u.name AS author_name
             FROM city_messages m JOIN users u ON u.id=m.author_id
             WHERE m.case_id=? ORDER BY m.id""", (case_id,),
     )]
@@ -90,8 +90,8 @@ def create_case(connection, user, data, timestamp):
     )
     case_id = cursor.lastrowid
     connection.execute(
-        "INSERT INTO city_messages(case_id,author_id,direction,body,created_at) VALUES(?,?,?,?,?)",
-        (case_id, user["id"], "outgoing", body, timestamp),
+        "INSERT INTO city_messages(case_id,author_id,department,direction,body,created_at) VALUES(?,?,?,?,?,?)",
+        (case_id, user["id"], department, "outgoing", body, timestamp),
     )
     audit(connection, "CREATE", "city_case", case_id,
           f"Utworzono sprawę demo #{case_id} dla zgłoszenia #{report_id}: {DEPARTMENTS[department]}", timestamp)
@@ -99,12 +99,12 @@ def create_case(connection, user, data, timestamp):
 
 
 def add_message(connection, case_id, user, data, timestamp):
-    get_case(connection, case_id)
+    current = get_case(connection, case_id)
     direction = choice(data, "direction", ("outgoing", "incoming"), "rodzaj wiadomości")
     body = text(data, "body", "Wiadomość", 4000)
     cursor = connection.execute(
-        "INSERT INTO city_messages(case_id,author_id,direction,body,created_at) VALUES(?,?,?,?,?)",
-        (case_id, user["id"], direction, body, timestamp),
+        "INSERT INTO city_messages(case_id,author_id,department,direction,body,created_at) VALUES(?,?,?,?,?,?)",
+        (case_id, user["id"], current["department"], direction, body, timestamp),
     )
     connection.execute("UPDATE city_cases SET updated_at=? WHERE id=?", (timestamp, case_id))
     label = "odpowiedź służb (demo)" if direction == "incoming" else "wiadomość do służb (demo)"
