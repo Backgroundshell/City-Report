@@ -88,7 +88,7 @@ function renderCityCase(item) {
     cityUI['report-link'].href = '#/reports/' + item.report_id;
     cityUI['report-link'].textContent = '#' + item.report_id + ' ' + item.report_title;
     cityUI['report-address'].textContent = item.address;
-    cityUI['report-status'].textContent = 'Status zgłoszenia: ' + item.report_status;
+    cityUI['report-status'].textContent = 'Status zgłoszenia: ' + item.report_status + ' · Priorytet: ' + reportPriorityLabel(item.report_priority);
     cityOptions(cityUI['case-department'], cityData.departments);
     cityOptions(cityUI['case-status'], cityData.statuses);
     cityUI['case-department'].value = item.department;

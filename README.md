@@ -1,74 +1,78 @@
-
 # CityReport
 
 **Language / Język:** [English](README.md) | [Polski](README.pl.md)
 
-CityReport to platforma internetowa do zgłaszania problemów w przestrzeni miejskiej: dziur, niedziałających latarni, uszkodzonych chodników, przepełnionych koszy i innych usterek.
+CityReport is a web application for reporting urban infrastructure problems, including potholes, broken streetlights, damaged pavements, overflowing bins, and maintenance issues. Residents submit reports with locations and optional photos; administrators manage repairs, priorities, city-service correspondence, and a local AI assistant. The interface uses Polish labels.
 
-## Uruchomienie
+## Run locally
 
-```bash
+```powershell
 python app.py
 ```
 
-Otwórz [http://127.0.0.1:8000](http://127.0.0.1:8000/).
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000/). Restart the Python process after backend updates, then refresh the browser. Startup adds missing database tables and columns without deleting existing reports or accounts. On Windows, startup logs use UTF-8, including when redirected to a file.
 
-## Lokalizacja zgłoszenia
+## Report locations and maps
 
-W formularzu wpisz ulicę i miejscowość, kliknij **Szukaj** i wybierz adres, jeśli pojawi się kilka wyników. Możesz też kliknąć mapę lub wybrać **Użyj mojej lokalizacji (GPS)**. GPS wymaga zgody przeglądarki oraz HTTPS lub localhost. Wskazany punkt można zapisać także wtedy, gdy w pobliżu nie ma adresu. Przycisk **Otwórz lokalizację na mapie** w szczegółach zgłoszenia otwiera interaktywną mapę wewnątrz CityReport. Zamknij ją przyciskiem lub klawiszem Esc, aby wrócić do szczegółów.
+In the report form, enter a street and city, click **Szukaj** (Search), and choose an address if several matches appear. You can also click the map or use **Użyj mojej lokalizacji (GPS)**. GPS requires browser permission and HTTPS or localhost. A selected point can be saved even if no nearby address is available. The form shows the nearest address while preserving the exact coordinates you selected.
 
-Po wskazaniu punktu formularz wyświetla pobliski adres w polu adresu i przy pinezce. Zgłoszenie zachowuje dokładne położenie wybranego punktu.
+In report details, **Otwórz lokalizację na mapie** opens an interactive map inside CityReport. Close it with the close button or Esc to return to the report.
 
-W panelu administratora mapa obejmuje zgłoszenia wszystkich mieszkańców. Kliknij pinezkę, aby otworzyć szczegóły zgłoszenia. Liczba na pinezce oznacza kilka zgłoszeń w tym samym miejscu. Zgłoszenia bez zapisanego położenia są dostępne na liście pod mapą.
+The administrator map includes reports from all residents. Pins show report status; a numbered pin groups reports at identical coordinates. Nearby points with different coordinates remain separate pins. Click a pin to open its report list, or **Pokaż wszystkie** to fit all reports. Reports without coordinates are listed below the map. Saved priorities appear in report popups.
 
-Mapa pobiera kafelki OpenStreetMap. Backend wysyła wyszukiwany adres lub wybrany punkt do usługi Photon. Własną instancję można wskazać zmienną `CITYREPORT_PHOTON_URL`.
+Map tiles come from OpenStreetMap. The backend sends address searches and selected points to Photon. Set `CITYREPORT_PHOTON_URL` to use your own Photon instance.
 
-## Kontakt z miastem — lokalna demonstracja
+## Saved report priorities
 
-Administrator ma dodatkową zakładkę **Kontakt z miastem**. Wybierz **Nowa sprawa**, wskaż zgłoszenie mieszkańca, właściwą służbę oraz pierwszą wiadomość. Tę samą sprawę można otworzyć przyciskiem **Kontakt ze służbami miejskimi** w szczegółach zgłoszenia. Każde zgłoszenie ma jedną sprawę; ponowne użycie przycisku otwiera jej historię.
+Every new and existing report has a saved priority: **Krytyczny** (Critical), **Wysoki** (High), **Średni** (Medium), or **Niski** (Low). API values are `critical`, `high`, `medium`, and `low`; the default is Medium.
 
-W sprawie zapiszesz kolejne wiadomości i ręcznie dodasz **Odpowiedź służb (demo)**. Możesz zmienić służbę oraz etap: **Otwarta**, **W realizacji**, **Zakończona**. Etapy odpowiadają statusom zgłoszenia **Nowe**, **W toku**, **Rozwiązane** i są synchronizowane w obie strony. Lista obsługuje wyszukiwanie i filtrowanie, a korespondencja pozostaje dostępna po odświeżeniu strony.
+Administrators can change priorities in the administration table or report details. Residents can see priorities on their own reports but cannot change them. Priorities also appear on report cards, map popups, and city cases.
 
-To lokalny tryb demonstracyjny: wiadomości nie są wysyłane do urzędu, a odpowiedzi nie pochodzą z zewnętrznej usługi. Dostęp do widoku i endpointów `/api/city/` mają wyłącznie administratorzy. Historia, autorzy wpisów i zmiany etapów są zapisywane w bazie oraz dzienniku operacji. Usunięcie zgłoszenia usuwa też jego sprawę i wiadomości.
+To use AI, open **Asystent AI**, select **Zaproponuj priorytety**, review the proposed levels and reasons, and click **Zapisz priorytety**. This analyses all unresolved reports by default. To analyse one report, use **Zaproponuj priorytet przez AI** in its details, or type a request such as “Suggest a priority for report #17”. Explicitly selected reports may also be resolved. Questions such as “What priority does report #17 have?” read the current state without saving changes.
 
-Po aktualizacji uruchom ponownie `python app.py` i odśwież stronę. Przy starcie aplikacja dodaje potrzebne tabele bez usuwania istniejących zgłoszeń i kont.
+Analysis alone does not modify reports. The save button applies the entire displayed proposal. Proposals expire after 30 minutes and can only be applied by the administrator who generated them. If report priorities or state changed after analysis, the entire save is rejected; generate a new proposal. Retrying an already successful save does not overwrite later manual changes. Invalid, incomplete, or unavailable AI responses never change priorities.
 
-## Usuwanie zgłoszeń w środowisku deweloperskim
+Saved priorities survive refreshes and application restarts. Administrators can see whether a priority is default, manual, or saved from AI, including the AI reason. Manual changes replace the previous AI reason. All changes are audited. Saving a priority does not change repair status.
 
-W terminalu w katalogu projektu wybierz jedno z poniższych poleceń.
+## City communication: local demo
 
-| **Cel** | **Polecenie** |
+Administrators have a **Kontakt z miastem** view. Select **Nowa sprawa**, choose a resident report and city service, and write the first message. The **Kontakt ze służbami miejskimi** button in report details opens the same workflow. Each report has one city case; opening the shortcut again returns to its history.
+
+Save follow-up messages or manually record an **Odpowiedź służb (demo)**. Cases can be reassigned to another service and moved between **Otwarta**, **W realizacji**, and **Zakończona**. These stages synchronize in both directions with report statuses **Nowe**, **W toku**, and **Rozwiązane**. The list supports search and stage filters, and correspondence survives refreshes.
+
+This is a local demonstration: messages are not delivered to a city office, and replies do not come from an external service. Only administrators can access the view or `/api/city/` endpoints. Message authors, service history, and repair-stage changes are recorded. Deleting a report also removes its city case and messages.
+
+## Development cleanup commands
+
+Run these commands from the project directory:
+
+| Action | Command |
 | --- | --- |
-| Usuń zgłoszenie nr 7 | `python dev.py delete-report 7` |
-| Wyczyść całą listę „Wszystkie zgłoszenia” | `python dev.py delete-all-reports` |
+| Delete report 7 and its photo | `python dev.py delete-report 7` |
+| Delete all reports and their photos | `python dev.py delete-all-reports` |
+| Delete audit entry 12 | `python dev.py delete-log-entry 12` |
+| Clear the audit log | `python dev.py clear-log` |
 
-Zastąp `7` numerem widocznym w panelu obsługi. Polecenie usuwa wybrane zgłoszenia wraz ze zdjęciami i zapisuje operację w dzienniku. Konta i kategorie pozostają dostępne. Odśwież panel, aby zobaczyć wynik.
+Replace IDs with numbers shown in the application. Report deletion is audited and preserves accounts and categories. Audit cleanup permanently removes the selected log entries. Refresh the page after running a command.
 
-## Usuwanie wpisów z dziennika operacji
+## Sign-in
 
-| **Cel** | **Polecenie** |
-| --- | --- |
-| Usuń wpis nr 12 | `python dev.py delete-log-entry 12` |
-| Wyczyść cały „Dziennik operacji” | `python dev.py clear-log` |
+Demo accounts:
 
-Zastąp `12` numerem widocznym przy treści wpisu w sekcji „Dziennik operacji”. Oba polecenia trwale usuwają wybrane wpisy. Odśwież panel, aby zobaczyć wynik.
-
-## Logowanie
-
-Po otwarciu aplikacji pojawi się ekran logowania. Konta demonstracyjne:
-
-| **Rola** | **E-mail** | **Hasło** |
+| Role | Email | Password |
 | --- | --- | --- |
-| Mieszkaniec | [jan@cityreport.local](mailto:jan@cityreport.local) | CityReport123! |
+| Resident | [jan@cityreport.local](mailto:jan@cityreport.local) | CityReport123! |
 | Administrator | [anna@cityreport.local](mailto:anna@cityreport.local) | CityReportAdmin123! |
 
-Możesz uzupełnić formularz przyciskiem w sekcji „Konta demonstracyjne”. Mieszkaniec widzi własne zgłoszenia; administrator ma dostęp do panelu obsługi i asystenta AI. Przycisk „Wyloguj się” kończy sesję. Sesja wygasa po 12 godzinach.
+The login page includes buttons that fill these demo credentials. Residents see their own reports; administrators can access all reports, city communication, and AI. **Wyloguj się** ends the session. Sessions expire after 12 hours.
 
-Hasła są przechowywane jako skróty PBKDF2, a sesje korzystają z ciasteczek HttpOnly. Przy pierwszym uruchomieniu tej wersji hasła zostaną dodane do istniejących kont demonstracyjnych bez usuwania zgłoszeń. Przed tym uruchomieniem można ustawić własne hasła przez `CITYREPORT_RESIDENT_PASSWORD` i `CITYREPORT_ADMIN_PASSWORD`; późniejsze zmiany tych zmiennych nie nadpisują zapisanych haseł. Podpowiedzi kont na ekranie logowania dotyczą domyślnych haseł demonstracyjnych.
+Passwords use PBKDF2 hashes and sessions use HttpOnly cookies. Before the first initialization of demo passwords, you can set `CITYREPORT_RESIDENT_PASSWORD` and `CITYREPORT_ADMIN_PASSWORD`. Changing those variables later does not overwrite saved passwords. The login hints describe the default demo passwords.
 
-## Lokalny LLM
+## Local AI configuration
 
-AI korzysta z kompatybilnego z OpenAI API serwera. Domyślnie jest to lokalny serwer LM Studio. Przykład konfiguracji dla Ollama:
+The backend uses an OpenAI-compatible `/v1/chat/completions` server. Defaults are LM Studio at `http://127.0.0.1:1234/v1`, the `qwen2.5-vl-7b-instruct` model for photos, and `openai/gpt-oss-20b` for administrator chat and priority analysis.
+
+Example configuration for Ollama photo analysis:
 
 ```powershell
 $env:LOCAL_LLM_BASE_URL = "http://127.0.0.1:11434/v1"
@@ -76,67 +80,67 @@ $env:LOCAL_LLM_MODEL = "llama3.2-vision"
 python app.py
 ```
 
-Adapter używa `/v1/chat/completions` i obsługuje czat administratora oraz opis zdjęcia. Domyślnie aplikacja łączy się z LM Studio pod `http://127.0.0.1:1234/v1`. Do zdjęć używa modelu `qwen2.5-vl-7b-instruct`, a do czatu oddzielnego modelu `openai/gpt-oss-20b`. Wybierz identyfikatory modeli dostępne na swoim serwerze. Aplikacja przekazuje model przy każdym żądaniu i pozostawia jego ładowanie oraz przełączanie LM Studio. Włączone w LM Studio opcje [JIT loading i Auto-Evict](https://lmstudio.ai/docs/developer/core/ttl-and-auto-evict) pozwalają przełączać modele automatycznie; aplikacja czeka na odpowiedź do 180 sekund.
-
-Model i serwer czatu można ustawić niezależnie od analizy zdjęć:
+Configure chat independently:
 
 ```powershell
-$env:LOCAL_CHAT_LLM_MODEL = "openai/gpt-oss-20b"
 $env:LOCAL_CHAT_LLM_BASE_URL = "http://127.0.0.1:1234/v1"
+$env:LOCAL_CHAT_LLM_MODEL = "openai/gpt-oss-20b"
 python app.py
 ```
 
-`LOCAL_LLM_MODEL` i `LOCAL_LLM_BASE_URL` dotyczą analizy zdjęć. Jeśli nie podasz `LOCAL_CHAT_LLM_BASE_URL`, czat użyje tego samego serwera co zdjęcia, ale swojego modelu. Przy konfiguracji Ollama ustaw także `LOCAL_CHAT_LLM_MODEL` na identyfikator modelu tekstowego dostępnego w Ollama. Po zmianie zmiennych uruchom aplikację ponownie. Nazwa aktywnego modelu pojawia się przy odpowiedziach asystenta.
+`LOCAL_LLM_BASE_URL` and `LOCAL_LLM_MODEL` configure photo analysis. If `LOCAL_CHAT_LLM_BASE_URL` is unset, chat uses the photo server URL with its own chat model. For Ollama chat, also set `LOCAL_CHAT_LLM_MODEL` to an installed text model. Use model identifiers available on your server and restart the application after changing variables.
 
-Jeśli serwer LM Studio wymaga autoryzacji, ustaw `LOCAL_LLM_API_KEY` przed uruchomieniem aplikacji. Klucz jest wysyłany wyłącznie przez backend w nagłówku `Authorization` i nie trafia do przeglądarki.
+The application passes the model ID with each request and waits up to 180 seconds. Model loading and switching are handled by the local server; LM Studio's [JIT loading and Auto-Evict](https://lmstudio.ai/docs/developer/core/ttl-and-auto-evict) support automatic switching. Start the server and make both models available before using AI features.
 
-## Czat administratora
+If the server requires authentication, set `LOCAL_LLM_API_KEY`. It is sent only by the backend in the `Authorization` header and is not exposed to the browser.
 
-Po zalogowaniu jako administrator otwórz **Asystent AI**. Czat jest ukryty dla mieszkańców, a backend odrzuca ich żądania do `/api/ai/chat` kodem 403 (bez sesji: 401).
+## Administrator AI assistant
 
-Przy każdym pytaniu backend pobiera wszystkie aktualne zgłoszenia z SQLite i przekazuje modelowi ich numery, tytuły, opisy, adresy, współrzędne, kategorie, statusy i daty. Zdjęcia, hasła i dane sesji nie są częścią kontekstu czatu. Model korzysta z ostatnich sześciu wymian rozmowy, a nowe dane zastępują informacje o wcześniejszych statusach.
+Open **Asystent AI** while signed in as an administrator. Unauthenticated chat requests return 401; resident requests return 403.
 
-Możesz użyć gotowych pytań lub wpisać np. „Czego dotyczą nowe zgłoszenia?”, „Co opisano w zgłoszeniu #1?” albo „Które problemy warto obsłużyć najpierw?”. Priorytety są sugestiami; czat nie zmienia zgłoszeń. Przycisk **Nowa rozmowa** czyści historię w przeglądarce. Historia znika też po odświeżeniu strony. Niedostępność lokalnego modelu jest widoczna w rozmowie i pozwala ponowić pytanie.
+Each question receives a fresh database snapshot containing report IDs, titles, descriptions, addresses, coordinates, categories, saved priorities, statuses, and dates. Photos, password hashes, and sessions are excluded. The model receives the last six conversation exchanges; the current snapshot takes precedence over older discussion. Single-report priority analysis receives only the selected report.
 
-Cały zestaw opisów musi mieścić się w kontekście wybranego modelu; aplikacja nie pomija zgłoszeń po cichu. Uruchom serwer LLM i udostępnij modele przez ręczne wczytanie lub JIT loading przed użyciem czatu. Dane czatu są wysyłane do serwera wskazanego przez `LOCAL_CHAT_LLM_BASE_URL` (domyślnie `LOCAL_LLM_BASE_URL`), domyślnie lokalnego.
+Ask about reports, request summaries, or ask which issues should be handled first. **Nowa rozmowa** resets browser conversation history. Refreshing clears conversation history but keeps saved priorities. The full report descriptions must fit the selected model's context window; reports are not silently omitted. Data goes to the configured chat server, which is local by default.
 
-Przycisk **Zaproponuj priorytety** używa tego samego endpointu `/api/ai/chat` z polem `mode: "prioritize"`. Backend przekazuje wyłącznie aktualne nierozwiązane zgłoszenia i stosuje [JSON Schema w `response_format`](https://lmstudio.ai/docs/developer/openai-compat/structured-output). Model zwraca `summary` oraz tablicę `reports` z polami `id`, `priority` (`critical`, `high`, `medium`, `low`) i krótkim polskim `reason`. Backend sprawdza strukturę, długości tekstów, dozwolone priorytety i dokładnie jeden wynik dla każdego przekazanego numeru. Niepełna analiza, duplikaty i wymyślone numery są odrzucane w całości (HTTP 502).
+### Structured priority and similarity analysis
 
-Wyniki są uzupełniane tytułem, kategorią, adresem i statusem z migawki bazy, sortowane od krytycznego do niskiego i wyświetlane jako karty z kolorowymi oznaczeniami. Brakujące dane mają czytelne opisy zastępcze. Teksty AI są wstawiane przez `textContent`. Analiza nie zmienia zgłoszeń ani schematu bazy; priorytety pozostają sugestiami administratora. Pusta lista jest obsługiwana bez wywoływania modelu.
+**Zaproponuj priorytety** uses `/api/ai/chat` with `mode: "prioritize"` and [JSON Schema structured output](https://lmstudio.ai/docs/developer/openai-compat/structured-output). The response contains a `summary` and a `reports` array with `id`, `priority`, and a short Polish `reason`. The backend requires one valid result per selected report and rejects incomplete responses, duplicates, unknown IDs, or invalid levels as a whole (HTTP 502).
 
-Prośby wpisane w rozmowie, np. „Pokaż podobne zgłoszenia i dodaj im priorytety” lub „give me only simular reports and add priorityes for them”, automatycznie uruchamiają tryb `similar` w tym samym endpointcie. Prośby o nadanie priorytetów uruchamiają tryb `prioritize` także bez klikania gotowego pytania. Wyjaśnienia pojęć i zwykłe pytania nadal korzystają ze swobodnej rozmowy. Frontend dobiera karty według trybu zwróconego przez backend.
+Results are enriched with database metadata and shown as cards from Critical to Low. Missing metadata has fallback labels, and AI text is rendered as text rather than HTML. Review these cards and use the save button to persist the server-validated proposal in a single transaction. An empty selection does not call the model or offer a save button.
 
-W trybie podobieństwa model wybiera wyłącznie powiązane nierozwiązane zgłoszenia na podstawie treści opisów. Sama kategoria nie wystarcza. Opisy bez co najmniej dwóch słów liczących po trzy litery są pomijane jako niewystarczające do potwierdzenia podobieństwa. Każdy wynik zawiera własny priorytet, wzajemne odwołania `similar_to` do innych zwróconych wyników i `evidence` — dosłowny fragment opisu sprawdzany przez backend. Karty pokazują numery powiązanych zgłoszeń i ten fragment. Brak potwierdzonych podobieństw daje pustą listę z wyjaśnieniem, bez dopisywania znaczenia do testowych opisów. Jest to semantyczna sugestia modelu; sprawdzenie fragmentów potwierdza ich pochodzenie, ale nie zastępuje oceny administratora.
+Requests such as “Show similar reports and assign priorities” automatically select `similar` mode. Other assignment requests select `prioritize`; ordinary explanations and questions remain conversational.
 
-Zwykłe pytania i pozostałe gotowe pytania nadal korzystają z odpowiedzi tekstowych, bez wymuszania JSON Schema. Jeśli preset LM Studio opakowuje tekst w JSON, backend odczytuje odpowiedź tekstową z tego opakowania. Podstawowy Markdown w zwykłych odpowiedziach (tabele, pogrubienia, kursywa, nagłówki, listy, cytaty, kod i linki) jest wyświetlany przez lokalny renderer DOM bez dodatkowych zależności. Szerokie tabele i kod można przewijać poziomo. Surowy HTML pozostaje tekstem, obrazy nie są ładowane, a linki dopuszczają tylko HTTP, HTTPS i pocztę. Wiadomości użytkownika pozostają zwykłym tekstem. Dane analizy pozostają w historii jako czytelny tekst, więc można o nie dopytać. Błędy połączenia, ładowania modelu i autoryzacji LM Studio zwracają polskie komunikaty (HTTP 503) bez treści błędów serwera i kluczy. Wygaśnięcie sesji aplikacji (HTTP 401) kieruje do logowania.
+Similarity analysis uses unresolved reports and must be supported by their descriptions. Category alone is insufficient. Descriptions without at least two words of three letters are excluded. Each result includes a priority, mutual `similar_to` references, and `evidence` copied from its own description. The backend verifies IDs, mutual relationships, and quoted evidence. No supported matches produces an empty list. These checks validate evidence origin; administrators still review the model's judgement. Priorities for the returned matching reports can be saved with the same approval button.
 
-Testy uprawnień, aktualności kontekstu i błędów czatu (bez uruchamiania modelu):
+Ordinary answers support basic Markdown: tables, emphasis, headings, lists, quotes, code, and links. Wide tables and code can scroll horizontally. Raw HTML remains text, images are not loaded, and links are restricted to HTTP, HTTPS, and email. JSON-wrapped ordinary text from model presets is unwrapped before rendering. Connection, loading, and authentication failures produce readable errors without exposing upstream error bodies or API keys; expired app sessions return to login.
 
-```bash
+## Verification
+
+Run the tests without a live model:
+
+```powershell
 python -m unittest discover -s tests -v
 ```
 
-Sprawdzenie w przeglądarce:
+Browser checks:
 
-1. Uruchom LM Studio z pobranymi modelami oraz `python app.py`. Zaloguj się jako administrator i otwórz **Asystent AI**.
-2. Kliknij **Zaproponuj priorytety**. Każde nierozwiązane zgłoszenie powinno otrzymać własny priorytet i uzasadnienie; rozwiązane zgłoszenia nie powinny pojawić się w kartach. Sprawdź kolejność i polskie znaki.
-3. Wpisz zwykłe pytanie, np. „Co opisano w zgłoszeniu #1?”, i dopytaj o poprzednią analizę. Odpowiedzi powinny pozostać tekstem.
-4. Sprawdź szerokość mobilną (np. 390 px): karty powinny mieścić się w oknie, a rozmowa przewijać wewnątrz panelu.
-5. W formularzu zgłoszenia dodaj zdjęcie i kliknij **Zaproponuj opis ze zdjęcia**. Opis nadal powinien pochodzić z modelu wizyjnego Qwen, a kolejne pytanie w czacie z modelu GPT-OSS.
-6. Przy zatrzymanym serwerze LM Studio sprawdź czytelny błąd i możliwość ponowienia analizy. Testy automatyczne obejmują również błędny JSON, brakujące wyniki, nieznane numery, wszystkie priorytety, pustą listę i błędy autoryzacji.
-7. Wpisz „give me only simular reports and add priorityes for them”. Wynik powinien zawierać wyłącznie potwierdzone pary lub grupy, priorytet każdego wyniku, powiązane numery i fragmenty opisów. Gdy brakuje danych lub podobieństw, powinien pojawić się komunikat zamiast przypadkowych grup kategorii.
+1. Submit a resident report with a location and optional photo. Verify that it opens on the in-app map.
+2. Change its priority manually as an administrator, refresh, and check the resident's read-only badge.
+3. Generate AI proposals for all unresolved reports or one report, review the reasons, save, and verify persistence.
+4. Change a report after generating a proposal and verify that saving the old analysis is rejected without partial updates.
+5. Check report cards, map popups, AI cards, and the city conversation view at a narrow viewport such as 390 px.
+6. Test photo suggestions with the vision model and chat/priority analysis with the chat model.
+7. Stop the model server and verify that a failed analysis preserves saved priorities and can be retried.
 
-Po aktualizacji backendu uruchom ponownie `python app.py` i odśwież stronę. Zasoby czatu mają wersjonowane adresy, a serwer wymaga ponownej walidacji pamięci podręcznej, aby przeglądarka pobierała aktualny renderer.
+Static assets have versioned URLs and require cache revalidation. Restart the backend and refresh the browser after updates.
 
-## Scenariusz prezentacji
+## Demonstration walkthrough
 
-1. W strefie mieszkańca kliknij „Zgłoś problem”.
-2. Dodaj zdjęcie. Opis możesz wpisać samodzielnie albo zostawić pusty.
-3. Backend wyśle zdjęcie do lokalnego modelu wizyjnego i zwróci sugestię opisu. Mieszkaniec może ją zaakceptować, zmienić lub wpisać własny tekst przed wysłaniem.
-4. W strefie mieszkańca sprawdź listę własnych zgłoszeń i ich statusy.
-5. W panelu administratora zmień status zgłoszenia i pokaż zapis w `audit_log`.
-6. Otwórz Asystenta AI i zapytaj o priorytety zgłoszeń.
+1. Sign in as a resident and select **Zgłoś problem**.
+2. Add a photo and location; write a description or request an editable AI suggestion.
+3. Submit the report and inspect its saved status and priority.
+4. Sign in as an administrator, update repair status and priority, and inspect the audit log.
+5. Review and save AI priority proposals, then refresh to confirm persistence.
+6. Create a local city case and record a demo reply or repair update.
 
-## Zgodność z raportem
-
-Zaimplementowano oddzielone strefy mieszkańca (przycisk dodania problemu i statusy własnych zgłoszeń) oraz administratora (wszystkie zgłoszenia, statusy, kategorie, mapa, audyt). Lokalny AI działa po stronie backendu: analizuje zdjęcie i przygotowuje edytowalną sugestię, a także obsługuje chat administratora. System udostępnia REST API i relacyjną bazę SQLite.
+The application provides separate resident and administrator views, REST endpoints, a relational SQLite database, location maps, local city-service correspondence, saved priorities, and backend AI for photo descriptions and administrator analysis.

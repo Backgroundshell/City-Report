@@ -44,7 +44,7 @@ def audit(connection, kind, entity, entity_id, details, timestamp):
 
 
 def case_query():
-    return """SELECT cc.*, r.title AS report_title, r.address, r.status AS report_status,
+    return """SELECT cc.*, r.title AS report_title, r.address, r.status AS report_status,r.priority AS report_priority,
         r.description AS report_description, cat.name AS category_name,
         (SELECT COUNT(*) FROM city_messages m WHERE m.case_id=cc.id) AS message_count,
         (SELECT m.body FROM city_messages m WHERE m.case_id=cc.id ORDER BY m.id DESC LIMIT 1) AS last_message

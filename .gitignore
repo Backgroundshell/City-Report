@@ -2,5 +2,6 @@
 /tests/*
 !/tests/test_auth.py
 !/tests/test_city.py
+!/tests/test_priorities.py
 __pycache__/
 *.pyc

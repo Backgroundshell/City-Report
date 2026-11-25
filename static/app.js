@@ -16,11 +16,12 @@ function renderAdminTable() {
         panel.replaceChildren();
         return;
     }
-    panel.innerHTML = '<table><thead><tr><th>ID / Problem</th><th>Kategoria</th><th>Status</th></tr></thead><tbody>'
-        + state.reports.map(r => `<tr><td><b><a class="report-link" href="#/reports/${r.id}">#${r.id} ${esc(r.title)}</a></b><small>${esc(r.address)}</small></td><td>${esc(r.category_name)}</td><td></td></tr>`).join('')
+    panel.innerHTML = '<table><thead><tr><th>ID / Problem</th><th>Kategoria</th><th>Status</th><th>Priorytet</th></tr></thead><tbody>'
+        + state.reports.map(r => `<tr><td><b><a class="report-link" href="#/reports/${r.id}">#${r.id} ${esc(r.title)}</a></b><small>${esc(r.address)}</small></td><td>${esc(r.category_name)}</td><td></td><td></td></tr>`).join('')
         + '</tbody></table>';
     panel.querySelectorAll('tbody tr').forEach((row, index) => {
-        row.lastElementChild.append(createStatusEditor(state.reports[index]));
+        row.children[2].append(createStatusEditor(state.reports[index]));
+        row.children[3].append(createPriorityEditor(state.reports[index]));
     });
 }
 function createStatusEditor(report) {
@@ -61,7 +62,34 @@ function statusBadgeClass(status) {
     if (status === 'Rozwiązane') return 'badge done';
     return 'badge';
 }
-function card(r){return `<article class="report-card"><div class="card-top"><span class="category-dot" style="background:${r.category_color}"></span><small>${esc(r.category_name)}</small><span class="${statusBadgeClass(r.status)}">${esc(r.status)}</span></div><h3><a class="report-link" href="#/reports/${r.id}">${esc(r.title||`Zgłoszenie #${r.id}`)}</a></h3><p>${esc(r.description)}</p><footer><span>⌖ ${esc(r.address)}</span><span>#${r.id}</span></footer></article>`}
+function reportPriority(value) { return Object.hasOwn(chatPriorities, value) ? value : 'medium'; }
+function reportPriorityLabel(value) { return chatPriorities[reportPriority(value)].label; }
+function createPriorityEditor(report) {
+    const select = document.createElement('select');
+    let saved = reportPriority(report.priority);
+    select.className = 'priority-editor priority-' + saved;
+    select.setAttribute('aria-label', 'Priorytet zgłoszenia #' + report.id);
+    for (const [value, info] of Object.entries(chatPriorities)) select.add(new Option(info.label, value));
+    select.value = saved;
+    select.onchange = async () => {
+        if (select.disabled || select.value === saved) return;
+        const next = select.value;
+        select.disabled = true;
+        try {
+            const response = await api('/api/reports/' + report.id + '/priority', {priority: next});
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Nie udało się zapisać priorytetu.');
+            saved = next;
+            toast('Priorytet zapisany');
+            await load();
+        } catch (error) {
+            select.value = saved;
+            toast(error instanceof TypeError ? 'Nie można połączyć się z aplikacją.' : error.message);
+        } finally { select.disabled = false; }
+    };
+    return select;
+}
+function card(r){const priority=reportPriority(r.priority);return `<article class="report-card"><div class="card-top"><span class="category-dot" style="background:${r.category_color}"></span><small>${esc(r.category_name)}</small><span class="${statusBadgeClass(r.status)}">${esc(r.status)}</span></div><h3><a class="report-link" href="#/reports/${r.id}">${esc(r.title||`Zgłoszenie #${r.id}`)}</a></h3><p>${esc(r.description)}</p><footer><span>⌖ ${esc(r.address)}</span><span class="priority-badge priority-${priority}">${esc(reportPriorityLabel(priority))}</span><span>#${r.id}</span></footer></article>`}
 function view(name){if(['admin','ai','city'].includes(name)&&state.user?.role!=='Administrator')return;$$('.view').forEach(x=>x.classList.add('hidden'));$(`#view-${name}`).classList.remove('hidden');let names={home:'Mapa zgłoszeń',reports:'Wszystkie zgłoszenia',admin:'Panel administratora',ai:'Asystent AI',city:'Kontakt z miastem',detail:'Zgłoszenie'};$('#crumb').textContent=names[name];$('#title').innerHTML=name==='home'?`Dzień dobry, ${esc(state.user?.name.split(' ')[0]||'')} <span>✦</span>`:names[name];$$('nav button').forEach(x=>x.classList.toggle('active',x.dataset.view===name))}
 $$('[data-view]').forEach(x=>x.onclick=()=>{location.hash='/'+x.dataset.view});$$('[data-action="new-report"]').forEach(x=>x.onclick=reportModal);$('#status-filter')?.addEventListener('change',e=>{filter=e.target.value;render()});$('#search')?.addEventListener('input',render);
 function toast(t){let e=$('#toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2500)}
@@ -126,6 +154,23 @@ async function showReport(id, signal) {
             status.className = statusBadgeClass(report.status);
         }
         $('#detail-address').textContent = report.address || 'Brak adresu.';
+        const priority = $('#detail-priority-value');
+        priority.className = '';
+        if (admin) priority.replaceChildren(createPriorityEditor(report));
+        else {
+            priority.textContent = reportPriorityLabel(report.priority);
+            priority.className = 'priority-badge priority-' + reportPriority(report.priority);
+        }
+        const priorityInfo = $('#detail-priority-info');
+        priorityInfo.hidden = !admin;
+        priorityInfo.textContent = admin ? (report.priority_source === 'ai' ? 'Zapisany z AI: ' + (report.priority_reason || '')
+            : report.priority_source === 'manual' ? 'Priorytet ustawiony ręcznie.' : 'Domyślny priorytet nowego zgłoszenia.') : '';
+        const priorityAI = $('#detail-ai-priority');
+        priorityAI.hidden = !admin;
+        priorityAI.onclick = admin ? () => {
+            location.hash = '/ai';
+            sendChat('Zaproponuj priorytet dla zgłoszenia #' + report.id + ' i uzasadnij swoją ocenę.', 'prioritize', [report.id]);
+        } : null;
         const mapLink = $('#detail-map-link');
         mapLink.hidden = !hasReportPoint(report);
         mapLink.onclick = mapLink.hidden ? null : () => openReportLocation(report);
@@ -320,7 +365,7 @@ function addChatAnalysis(result,label){
         heading.append(link,chatNode('span',`priority-badge priority-${report.priority}`,chatPriorities[report.priority].label));
         card.append(heading,chatNode('h4','',report.title||`Zgłoszenie #${report.id}`));
         const details=chatNode('dl','analysis-details');
-        for(const [name,value] of [['Kategoria',report.category],['Adres',report.address],['Status',report.status]]){
+        for(const [name,value] of [['Kategoria',report.category],['Adres',report.address],['Status',report.status],['Zapisany priorytet',reportPriorityLabel(report.current_priority)]]){
             const row=chatNode('div','');
             row.append(chatNode('dt','',name),chatNode('dd','',value||'Brak danych'));
             details.append(row);
@@ -339,7 +384,35 @@ function addChatAnalysis(result,label){
         }
         cards.append(card);
     }
-    element.append(chatNode('p','analysis-note','Sugerowane priorytety AI. Decyzję podejmuje administrator.'),cards);
+    element.append(chatNode('p','analysis-note','Propozycje AI. Zapisanie zastąpi obecne priorytety pokazanych zgłoszeń.'),cards);
+    if (reports.length && typeof result.proposal_token === 'string') {
+        const actions = chatNode('div', 'priority-apply-actions');
+        const button = chatNode('button', 'primary priority-apply', 'Zapisz priorytety (' + reports.length + ')');
+        button.type = 'button';
+        const feedback = chatNode('p', 'priority-apply-feedback', 'Propozycja jest ważna przez 30 minut.');
+        feedback.setAttribute('role', 'status');
+        button.onclick = async () => {
+            if (button.disabled) return;
+            button.disabled = true;
+            feedback.textContent = 'Zapisywanie priorytetów…';
+            let response;
+            try {
+                response = await api('/api/ai/priorities/apply', {proposal_token: result.proposal_token});
+                const saved = await response.json();
+                if (!response.ok) throw new Error(saved.error || 'Nie udało się zapisać priorytetów.');
+                button.textContent = 'Priorytety zapisane';
+                feedback.textContent = saved.already_applied ? 'Ta propozycja została już zapisana. Późniejsze zmiany pozostały bez zmian.'
+                    : 'Zapisano priorytety zgłoszeń: ' + saved.applied_count + '.';
+                await load();
+            } catch (error) {
+                feedback.textContent = error instanceof TypeError ? 'Nie można połączyć się z aplikacją. Spróbuj ponownie.' : error.message;
+                button.disabled = response?.status === 409;
+                if (button.disabled) button.textContent = 'Wygeneruj nową analizę';
+            }
+        };
+        actions.append(button, feedback);
+        element.append(actions);
+    }
     element.scrollIntoView({block:'start'});
     return result.summary+'\n'+reports.map(report=>`#${report.id} — ${chatPriorities[report.priority].label}: ${report.reason}${Array.isArray(report.similar_to)?' Podobne: '+report.similar_to.map(id=>`#${id}`).join(', '):''}`).join('\n');
 }
@@ -352,7 +425,7 @@ function resetChat(){
     $('#chat-status').textContent='Przy każdym pytaniu pobieram aktualne dane wszystkich zgłoszeń.';
     $('#chat-input').focus();
 }
-async function sendChat(message,mode='chat'){
+async function sendChat(message,mode='chat',reportIds){
     if(chatBusy||state.user?.role!=='Administrator')return;
     const input=$('#chat-input');
     const question=message.trim();
@@ -366,7 +439,7 @@ async function sendChat(message,mode='chat'){
     const pending=addChatMessage('bot',mode==='prioritize'?'Ustalam sugerowane priorytety nierozwiązanych zgłoszeń…':'Analizuję aktualne zgłoszenia…','Asystent CityReport');
     $('#chat-messages').setAttribute('aria-busy','true');
     try{
-        const response=await api('/api/ai/chat',{message:question,history:chatHistory.slice(-12),mode});
+        const response=await api('/api/ai/chat',{message:question,history:chatHistory.slice(-12),mode,...(reportIds?{report_ids:reportIds}:{})});
         if(response.status===401)throw new Error('Sesja wygasła. Zaloguj się ponownie.');
         let result;
         try{result=await response.json()}catch{throw new Error('Serwer zwrócił nieprawidłową odpowiedź. Spróbuj ponownie.')}
@@ -389,7 +462,7 @@ async function sendChat(message,mode='chat'){
         const message=error instanceof TypeError?'Nie można połączyć się z aplikacją. Sprawdź połączenie i spróbuj ponownie.':error.message;
         addChatMessage('bot',`${message} Możesz ponowić pytanie.`, 'Nie udało się odpowiedzieć');
         input.value=question;
-        chatRetry={question,mode};
+        chatRetry={question,mode,reportIds};
     }finally{
         chatBusy=false;
         $('#chat-messages').setAttribute('aria-busy','false');
@@ -398,7 +471,7 @@ async function sendChat(message,mode='chat'){
         input.focus();
     }
 }
-$('#chat-form').onsubmit=event=>{event.preventDefault();const question=$('#chat-input').value;sendChat(question,chatRetry?.question===question.trim()?chatRetry.mode:'chat')};
+$('#chat-form').onsubmit=event=>{event.preventDefault();const question=$('#chat-input').value;const retry=chatRetry?.question===question.trim()?chatRetry:null;sendChat(question,retry?.mode||'chat',retry?.reportIds)};
 $$('[data-chat-prompt]').forEach(button=>button.onclick=()=>sendChat(button.dataset.chatPrompt,button.dataset.chatMode||'chat'));
 $('#chat-reset').onclick=resetChat;
 load();
