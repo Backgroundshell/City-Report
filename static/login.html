@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zaloguj się — CityReport</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/login.css">
+</head>
+<body class="login-page">
+  <div class="login-layout">
+    <section class="login-story" aria-labelledby="story-title">
+      <a class="brand" href="/login" aria-label="CityReport — strona logowania"><b>CR</b><strong>CityReport</strong></a>
+      <div class="story-content">
+        <span class="login-eyebrow">TWOJE MIASTO. WSPÓLNA SPRAWA.</span>
+        <h1 id="story-title">Małe zgłoszenie.<br><span>Duża zmiana.</span></h1>
+        <p>Zadbaj o swoją okolicę. Zgłaszaj problemy, śledź postępy i pomóż nam tworzyć lepsze miejsce do życia.</p>
+        <div class="login-city" aria-hidden="true">
+          <span class="city-sun">✦</span>
+          <div class="city-block block-one"></div><div class="city-block block-two"></div><div class="city-block block-three"></div>
+          <div class="city-tree"></div><div class="city-street"></div><div class="city-pin">⌖</div>
+          <div class="city-notice"><span>✓</span><div><b>Razem zmieniamy okolicę</b><small>Każde zgłoszenie ma znaczenie</small></div></div>
+        </div>
+      </div>
+      <p class="story-footer">Bliżej mieszkańców. Bliżej rozwiązania.</p>
+    </section>
+    <section class="login-panel" aria-labelledby="login-title">
+      <div class="login-card">
+        <span class="login-eyebrow">WITAJ W CITYREPORT</span>
+        <h2 id="login-title">Dobrze Cię widzieć.</h2>
+        <p class="login-intro">Zaloguj się, aby sprawdzić swoje zgłoszenia<br>lub dodać nowy problem w okolicy.</p>
+        <form id="login-form">
+          <label for="email">Adres e-mail</label>
+          <input type="email" id="email" name="email" placeholder="jan@cityreport.local" autocomplete="username" required autofocus>
+          <label for="password">Hasło</label>
+          <div class="password-field">
+            <input type="password" id="password" name="password" placeholder="Wpisz swoje hasło" autocomplete="current-password" required>
+            <button type="button" id="toggle-password" aria-label="Pokaż hasło" aria-pressed="false">Pokaż</button>
+          </div>
+          <p id="login-error" class="login-error" role="alert" hidden></p>
+          <button type="submit" class="primary login-submit" id="login-submit">Zaloguj się <span aria-hidden="true">→</span></button>
+        </form>
+        <details class="demo-accounts">
+          <summary>Konta demonstracyjne</summary>
+          <p>Wybierz konto, aby uzupełnić formularz. Następnie kliknij „Zaloguj się”.</p>
+          <button type="button" data-demo="resident"><span>Mieszkaniec</span><small>jan@cityreport.local · CityReport123!</small></button>
+          <button type="button" data-demo="admin"><span>Administrator</span><small>anna@cityreport.local · CityReportAdmin123!</small></button>
+        </details>
+        <p class="login-note"><span aria-hidden="true">◈</span> Jedno miejsce dla mieszkańców i administratorów.</p>
+      </div>
+      <p class="login-footer">CityReport <span>·</span> Twoja okolica w dobrych rękach</p>
+    </section>
+  </div>
+  <script src="/login.js"></script>
+</body>
+</html>
