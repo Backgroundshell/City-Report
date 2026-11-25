@@ -220,6 +220,116 @@ class ReportPriorityTests(unittest.TestCase):
                 self.assertEqual(users, [tuple(row) for row in connection.execute("SELECT id,password_hash FROM users ORDER BY id")])
                 self.assertEqual([row[0] for row in connection.execute("SELECT DISTINCT priority FROM reports")], ["medium"])
 
+    def add_third_report(self):
+        status, _, result = self.request("POST", "/api/reports", {
+            "title": "Trzecie zgłoszenie do oceny", "description": "Uszkodzony fragment chodnika.",
+            "address": "Kraków", "category_id": 1,
+        }, self.resident)
+        self.assertEqual(status, 200)
+        self.ids.append(result["id"])
+        return result["id"]
+
+    def apply_selected(self, token, report_ids, cookie=None):
+        return self.request("POST", "/api/ai/priorities/apply-selected", {
+            "proposal_token": token, "report_ids": report_ids,
+        }, cookie or self.admin)
+
+    def test_only_first_and_third_suggestions_are_saved(self):
+        third = self.add_third_report()
+        token = self.proposal()
+        second_before = next(report for report in self.snapshot() if report["id"] == self.ids[1])
+        status, _, result = self.apply_selected(token, [self.ids[0], third])
+        self.assertEqual(status, 200)
+        self.assertEqual(result["newly_applied_count"], 2)
+        self.assertEqual(set(result["approved_ids"]), {self.ids[0], third})
+        self.assertEqual(result["remaining_ids"], [self.ids[1]])
+        reports = {report["id"]: report for report in self.snapshot()}
+        self.assertEqual(reports[self.ids[1]], second_before)
+        self.assertEqual(reports[self.ids[0]]["priority_source"], "ai")
+        self.assertEqual(reports[third]["priority_source"], "ai")
+        self.assertEqual(len(app.rows("SELECT * FROM audit_log WHERE event_type='UPDATE'")), 2)
+        self.assertIsNone(app.rows("SELECT applied_at FROM priority_proposals")[0]["applied_at"])
+
+    def test_remaining_suggestions_can_be_approved_later_or_all_at_once(self):
+        self.add_third_report()
+        token = self.proposal()
+        self.assertEqual(self.apply_selected(token, [self.ids[0]])[0], 200)
+        self.request("POST", f"/api/reports/{self.ids[0]}/priority", {"priority": "low"}, self.admin)
+        manual = next(report for report in self.snapshot() if report["id"] == self.ids[0])
+        status, _, replay = self.apply_selected(token, [self.ids[0]])
+        self.assertEqual(status, 200)
+        self.assertTrue(replay["already_applied"])
+        self.assertEqual(replay["newly_applied_count"], 0)
+        status, _, result = self.apply(token)
+        self.assertEqual(status, 200)
+        self.assertEqual(result["newly_applied_count"], 2)
+        self.assertEqual(result["remaining_ids"], [])
+        self.assertEqual(set(result["approved_ids"]), set(self.ids))
+        self.assertEqual(next(report for report in self.snapshot() if report["id"] == self.ids[0]), manual)
+        after = self.snapshot()
+        self.assertTrue(self.apply(token)[2]["already_applied"])
+        self.assertEqual(self.snapshot(), after)
+
+    def test_stale_unselected_report_does_not_block_fresh_choices(self):
+        third = self.add_third_report()
+        token = self.proposal()
+        self.request("POST", f"/api/reports/{self.ids[1]}/priority", {"priority": "low"}, self.admin)
+        second = next(report for report in self.snapshot() if report["id"] == self.ids[1])
+        self.assertEqual(self.apply_selected(token, [self.ids[0], third])[0], 200)
+        before_stale = self.snapshot()
+        self.assertEqual(self.apply_selected(token, [self.ids[1]])[0], 409)
+        self.assertEqual(self.snapshot(), before_stale)
+        self.assertEqual(next(report for report in self.snapshot() if report["id"] == self.ids[1]), second)
+
+    def test_stale_selected_report_rolls_back_only_the_current_approval(self):
+        third = self.add_third_report()
+        token = self.proposal()
+        self.request("POST", f"/api/reports/{third}/priority", {"priority": "low"}, self.admin)
+        before = self.snapshot()
+        self.assertEqual(self.apply_selected(token, [self.ids[0], third])[0], 409)
+        self.assertEqual(self.snapshot(), before)
+        proposal = app.rows("SELECT payload,applied_at FROM priority_proposals")[0]
+        self.assertIsNone(proposal["applied_at"])
+        self.assertTrue(all(not item.get("applied_at") for item in json.loads(proposal["payload"])))
+        self.assertEqual(self.apply_selected(token, [self.ids[0]])[0], 200)
+
+    def test_invalid_or_missing_selection_never_falls_back_to_applying_all(self):
+        token = self.proposal()
+        third = self.add_third_report()
+        before = self.snapshot()
+        for selected in (None, [], {}, "all", [True], [0], [self.ids[0], self.ids[0]], [third], [999999], [2**63]):
+            with self.subTest(selected=selected):
+                self.assertEqual(self.apply_selected(token, selected)[0], 400)
+                self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.request("POST", "/api/ai/priorities/apply-selected", {"proposal_token": token}, self.admin)[0], 400)
+        self.assertEqual(self.request("POST", "/api/ai/priorities/apply-selected", {"proposal_token": token, "report_ids": [self.ids[0]]})[0], 401)
+        self.assertEqual(self.apply_selected(token, [self.ids[0]], self.resident)[0], 403)
+
+    def test_old_fully_applied_proposals_remain_safe_on_subset_retries(self):
+        token = self.proposal()
+        self.assertEqual(self.apply(token)[0], 200)
+        with closing(app.db()) as connection, connection:
+            row = connection.execute("SELECT token_hash,payload FROM priority_proposals").fetchone()
+            old_payload = json.loads(row["payload"])
+            for item in old_payload:
+                item.pop("applied_at", None)
+            connection.execute("UPDATE priority_proposals SET payload=? WHERE token_hash=?", (json.dumps(old_payload), row["token_hash"]))
+        self.request("POST", f"/api/reports/{self.ids[0]}/priority", {"priority": "low"}, self.admin)
+        before = self.snapshot()
+        status, _, result = self.apply_selected(token, [self.ids[0]])
+        self.assertEqual(status, 200)
+        self.assertTrue(result["already_applied"])
+        self.assertEqual(self.snapshot(), before)
+
+    def test_selected_save_uses_server_proposal_values(self):
+        token = self.proposal()
+        status, _, _ = self.request("POST", "/api/ai/priorities/apply-selected", {
+            "proposal_token": token, "report_ids": [self.ids[0]],
+            "priority": "low", "reports": [{"id": self.ids[0], "priority": "low"}],
+        }, self.admin)
+        self.assertEqual(status, 200)
+        self.assertEqual(next(report for report in self.snapshot() if report["id"] == self.ids[0])["priority"], "critical")
+
 
 if __name__ == "__main__":
     unittest.main()

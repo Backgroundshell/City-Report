@@ -15,6 +15,22 @@
 #detail-ai-priority { display: inline-block; padding: 0; border: 0; background: none; font: 500 .875rem 'DM Sans', sans-serif; cursor: pointer; }
 .priority-apply-actions { display: grid; justify-items: start; gap: 9px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #d6e2ed; }
 .priority-apply-actions .primary { font: 600 .875rem 'DM Sans', sans-serif; }
+.priority-choice-label { display: inline-flex; align-items: center; gap: 9px; min-height: 36px; margin: 0 0 12px; color: #3e5b73; font-size: .875rem; font-weight: 600; cursor: pointer; }
+.priority-choice { flex-shrink: 0; width: 18px; height: 18px; margin: 0; accent-color: var(--blue); cursor: pointer; }
+.priority-choice:focus-visible, .priority-apply-all:focus-visible, .priority-selection-toggles button:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.priority-approved .priority-choice-label { color: #176d53; cursor: default; }
+.priority-approved .priority-choice { cursor: default; }
+.priority-selection-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+.chat .priority-selection-summary { margin: 0; color: #496174; font-size: .8125rem; line-height: 1.5; }
+.priority-selection-toggles, .priority-save-buttons { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.priority-selection-toggles .link { min-height: 36px; padding: 6px; font: 600 .8125rem 'DM Sans', sans-serif; }
+.priority-save-buttons .ghost { min-height: 40px; font: 600 .875rem 'DM Sans', sans-serif; }
 .chat .priority-apply-feedback { margin: 0; color: #496174; font-size: .8125rem; line-height: 1.6; }
+.chat .priority-apply-error { color: #9b3a30; }
+.chat .priority-apply-actions button:disabled, .chat .priority-selection-toolbar button:disabled { cursor: default; }
+.chat .priority-apply-actions[aria-busy="true"] button, .chat .priority-selection-toolbar[aria-busy="true"] button { cursor: wait; }
 .map-report-meta .priority-badge { font-size: .6875rem; }
-@media (max-width: 650px) { .priority-apply-actions, .priority-apply-actions .primary { width: 100%; } }
+@media (max-width: 650px) {
+    .priority-apply-actions, .priority-save-buttons, .priority-save-buttons button { width: 100%; }
+    .priority-save-buttons { flex-direction: column; align-items: stretch; }
+}

@@ -55,6 +55,16 @@ function createReportMap(container, tileError, options = {}) {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).on('tileerror', () => { tileError.hidden = false; })
       .on('tileload', () => { tileError.hidden = true; }).addTo(map);
+    if (typeof ResizeObserver === 'function') {
+        let active = true;
+        const observer = new ResizeObserver(entries => {
+            if (active && entries.some(entry => entry.contentRect.width > 0 && entry.contentRect.height > 0)) {
+                map.invalidateSize({animate: false, pan: true});
+            }
+        });
+        map.whenReady(() => observer.observe(container));
+        map.on('unload', () => { active = false; observer.disconnect(); });
+    }
     return map;
 }
 
@@ -140,7 +150,7 @@ function renderAdminMap(reports) {
         dashboardMarkers = L.featureGroup().addTo(dashboardMap);
         document.querySelector('#admin-map-fit').addEventListener('click', fitAdminMap);
     }
-    dashboardMap.invalidateSize({pan: false});
+    dashboardMap.invalidateSize({animate: false, pan: true});
     if (plottedReports === reports) return;
     plottedReports = reports;
 

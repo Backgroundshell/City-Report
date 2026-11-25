@@ -357,6 +357,8 @@ function addChatAnalysis(result,label){
     element.querySelector('p').classList.add('analysis-summary');
     const cards=chatNode('div','analysis-reports');
     const reports=[...result.reports].sort((a,b)=>chatPriorities[a.priority].rank-chatPriorities[b.priority].rank);
+    const canApprove = reports.length && typeof result.proposal_token === 'string';
+    const choices = new Map();
     for(const report of reports){
         const card=chatNode('article',`analysis-report priority-${report.priority}`);
         const heading=chatNode('div','analysis-report-heading');
@@ -364,6 +366,19 @@ function addChatAnalysis(result,label){
         link.href='#/reports/'+report.id;
         heading.append(link,chatNode('span',`priority-badge priority-${report.priority}`,chatPriorities[report.priority].label));
         card.append(heading,chatNode('h4','',report.title||`Zgłoszenie #${report.id}`));
+        if (canApprove) {
+            const choice = chatNode('label', 'priority-choice-label');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'priority-choice';
+            checkbox.checked = true;
+            checkbox.dataset.reportId = String(report.id);
+            checkbox.setAttribute('aria-label', 'Zatwierdź priorytet zgłoszenia #' + report.id);
+            const text = chatNode('span', '', 'Zatwierdź tę propozycję');
+            choice.append(checkbox, text);
+            card.append(choice);
+            choices.set(report.id, {checkbox, text, card});
+        }
         const details=chatNode('dl','analysis-details');
         for(const [name,value] of [['Kategoria',report.category],['Adres',report.address],['Status',report.status],['Zapisany priorytet',reportPriorityLabel(report.current_priority)]]){
             const row=chatNode('div','');
@@ -384,33 +399,84 @@ function addChatAnalysis(result,label){
         }
         cards.append(card);
     }
-    element.append(chatNode('p','analysis-note','Propozycje AI. Zapisanie zastąpi obecne priorytety pokazanych zgłoszeń.'),cards);
-    if (reports.length && typeof result.proposal_token === 'string') {
+    element.append(chatNode('p','analysis-note','Zaznacz propozycje, które zatwierdzasz. Niezatwierdzone priorytety pozostaną bez zmian.'),cards);
+    if (canApprove) {
+        const approved = new Set();
+        let busy = false;
+        const selectionBar = chatNode('div', 'priority-selection-toolbar');
+        const summary = chatNode('p', 'priority-selection-summary');
+        summary.setAttribute('role', 'status');
+        const toggles = chatNode('div', 'priority-selection-toggles');
+        const selectAll = chatNode('button', 'link priority-select-all', 'Zaznacz wszystkie');
+        const clearAll = chatNode('button', 'link priority-clear-all', 'Odznacz wszystkie');
+        selectAll.type = clearAll.type = 'button';
+        toggles.append(selectAll, clearAll);
+        selectionBar.append(summary, toggles);
+        cards.before(selectionBar);
         const actions = chatNode('div', 'priority-apply-actions');
-        const button = chatNode('button', 'primary priority-apply', 'Zapisz priorytety (' + reports.length + ')');
-        button.type = 'button';
+        const saveButtons = chatNode('div', 'priority-save-buttons');
+        const selectedButton = chatNode('button', 'primary priority-apply');
+        const allButton = chatNode('button', 'ghost priority-apply-all');
+        selectedButton.type = allButton.type = 'button';
         const feedback = chatNode('p', 'priority-apply-feedback', 'Propozycja jest ważna przez 30 minut.');
         feedback.setAttribute('role', 'status');
-        button.onclick = async () => {
-            if (button.disabled) return;
-            button.disabled = true;
+
+        function remainingIds() { return reports.filter(report => !approved.has(report.id)).map(report => report.id); }
+        function selectedIds() { return remainingIds().filter(id => choices.get(id).checkbox.checked); }
+        function updateControls() {
+            actions.setAttribute('aria-busy', String(busy));
+            selectionBar.setAttribute('aria-busy', String(busy));
+            const remaining = remainingIds().length;
+            const selected = selectedIds().length;
+            for (const [id, choice] of choices) {
+                const saved = approved.has(id);
+                choice.checkbox.disabled = busy || saved;
+                if (saved) choice.checkbox.checked = true;
+                choice.text.textContent = saved ? 'Priorytet zapisany' : 'Zatwierdź tę propozycję';
+                choice.card.classList.toggle('priority-approved', saved);
+            }
+            summary.textContent = 'Zapisane: ' + approved.size + ' / ' + reports.length + '. Wybrane: ' + selected + '.';
+            selectedButton.disabled = busy || !selected;
+            allButton.disabled = busy || !remaining;
+            selectAll.disabled = clearAll.disabled = busy || !remaining;
+            selectedButton.textContent = remaining ? 'Zapisz wybrane (' + selected + ')' : 'Priorytety zapisane';
+            allButton.textContent = remaining ? 'Zapisz wszystkie (' + remaining + ')' : 'Wszystkie zapisane';
+        }
+        async function approve(reportIds) {
+            if (busy || !reportIds.length) return;
+            busy = true;
+            updateControls();
             feedback.textContent = 'Zapisywanie priorytetów…';
-            let response;
+            feedback.classList.remove('priority-apply-error');
             try {
-                response = await api('/api/ai/priorities/apply', {proposal_token: result.proposal_token});
+                // A separate endpoint makes an older backend fail safely instead
+                // of ignoring this selection and applying the entire proposal.
+                const response = await api('/api/ai/priorities/apply-selected', {
+                    proposal_token: result.proposal_token, report_ids: reportIds,
+                });
                 const saved = await response.json();
                 if (!response.ok) throw new Error(saved.error || 'Nie udało się zapisać priorytetów.');
-                button.textContent = 'Priorytety zapisane';
-                feedback.textContent = saved.already_applied ? 'Ta propozycja została już zapisana. Późniejsze zmiany pozostały bez zmian.'
-                    : 'Zapisano priorytety zgłoszeń: ' + saved.applied_count + '.';
+                if (!Array.isArray(saved.approved_ids)) throw new Error('Nie udało się odczytać potwierdzenia zapisu.');
+                for (const id of saved.approved_ids) if (choices.has(id)) approved.add(id);
+                feedback.textContent = saved.already_applied ? 'Te propozycje zostały już zapisane. Nie nadpisano późniejszych zmian.'
+                    : 'Zapisano priorytety zgłoszeń: ' + saved.newly_applied_count + '. Inne zgłoszenia nie zostały zmienione.';
                 await load();
             } catch (error) {
                 feedback.textContent = error instanceof TypeError ? 'Nie można połączyć się z aplikacją. Spróbuj ponownie.' : error.message;
-                button.disabled = response?.status === 409;
-                if (button.disabled) button.textContent = 'Wygeneruj nową analizę';
+                feedback.classList.add('priority-apply-error');
+            } finally {
+                busy = false;
+                updateControls();
             }
-        };
-        actions.append(button, feedback);
+        }
+        selectAll.onclick = () => { for (const id of remainingIds()) choices.get(id).checkbox.checked = true; updateControls(); };
+        clearAll.onclick = () => { for (const id of remainingIds()) choices.get(id).checkbox.checked = false; updateControls(); };
+        for (const choice of choices.values()) choice.checkbox.addEventListener('change', updateControls);
+        selectedButton.onclick = () => approve(selectedIds());
+        allButton.onclick = () => approve(remainingIds());
+        updateControls();
+        saveButtons.append(selectedButton, allButton);
+        actions.append(saveButtons, feedback);
         element.append(actions);
     }
     element.scrollIntoView({block:'start'});
