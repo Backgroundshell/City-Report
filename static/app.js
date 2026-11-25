@@ -62,7 +62,7 @@ function statusBadgeClass(status) {
     return 'badge';
 }
 function card(r){return `<article class="report-card"><div class="card-top"><span class="category-dot" style="background:${r.category_color}"></span><small>${esc(r.category_name)}</small><span class="${statusBadgeClass(r.status)}">${esc(r.status)}</span></div><h3><a class="report-link" href="#/reports/${r.id}">${esc(r.title||`Zgłoszenie #${r.id}`)}</a></h3><p>${esc(r.description)}</p><footer><span>⌖ ${esc(r.address)}</span><span>#${r.id}</span></footer></article>`}
-function view(name){if(['admin','ai'].includes(name)&&state.user?.role!=='Administrator')return;$$('.view').forEach(x=>x.classList.add('hidden'));$(`#view-${name}`).classList.remove('hidden');let names={home:'Mapa zgłoszeń',reports:'Wszystkie zgłoszenia',admin:'Panel administratora',ai:'Asystent AI',detail:'Zgłoszenie'};$('#crumb').textContent=names[name];$('#title').innerHTML=name==='home'?`Dzień dobry, ${esc(state.user?.name.split(' ')[0]||'')} <span>✦</span>`:names[name];$$('nav button').forEach(x=>x.classList.toggle('active',x.dataset.view===name))}
+function view(name){if(['admin','ai','city'].includes(name)&&state.user?.role!=='Administrator')return;$$('.view').forEach(x=>x.classList.add('hidden'));$(`#view-${name}`).classList.remove('hidden');let names={home:'Mapa zgłoszeń',reports:'Wszystkie zgłoszenia',admin:'Panel administratora',ai:'Asystent AI',city:'Kontakt z miastem',detail:'Zgłoszenie'};$('#crumb').textContent=names[name];$('#title').innerHTML=name==='home'?`Dzień dobry, ${esc(state.user?.name.split(' ')[0]||'')} <span>✦</span>`:names[name];$$('nav button').forEach(x=>x.classList.toggle('active',x.dataset.view===name))}
 $$('[data-view]').forEach(x=>x.onclick=()=>{location.hash='/'+x.dataset.view});$$('[data-action="new-report"]').forEach(x=>x.onclick=reportModal);$('#status-filter')?.addEventListener('change',e=>{filter=e.target.value;render()});$('#search')?.addEventListener('input',render);
 function toast(t){let e=$('#toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2500)}
 let detailRequest;
@@ -71,6 +71,8 @@ function renderRoute() {
     if (!state.user) return;
     detailRequest?.abort();
     const route = location.hash.slice(1);
+    const cityRoute = /^\/city(?:\/([1-9]\d{0,18}))?$/.exec(route);
+    if (!cityRoute) cancelCityView();
     const match = /^\/reports\/([1-9]\d{0,18})$/.exec(route);
     if (match) {
         detailRequest = new AbortController();
@@ -79,9 +81,10 @@ function renderRoute() {
     }
     const admin = state.user.role === 'Administrator';
     previousSection = 'home';
-    if (admin) previousSection = route === '/ai' ? 'ai' : 'admin';
+    if (admin) previousSection = cityRoute ? 'city' : route === '/ai' ? 'ai' : 'admin';
     view(previousSection);
     if (previousSection === 'admin') renderAdminMap(state.reports);
+    if (previousSection === 'city') renderCityView(cityRoute[1] || null);
     document.title = 'CityReport — problemy w mieście';
 }
 async function showReport(id, signal) {
@@ -94,7 +97,7 @@ async function showReport(id, signal) {
     const back = $('#detail-back');
     const origin = previousSection || (state.user.role === 'Administrator' ? 'admin' : 'home');
     back.href = '#/' + origin;
-    back.textContent = {home:'← Moje zgłoszenia', admin:'← Panel obsługi', ai:'← Asystent AI'}[origin];
+    back.textContent = {home:'← Moje zgłoszenia', admin:'← Panel obsługi', ai:'← Asystent AI',city:'← Kontakt z miastem'}[origin];
     const body = $('#detail-body');
     const feedback = $('#detail-feedback');
     const image = $('#detail-image');
@@ -124,10 +127,11 @@ async function showReport(id, signal) {
         }
         $('#detail-address').textContent = report.address || 'Brak adresu.';
         const mapLink = $('#detail-map-link');
-        const {latitude, longitude} = report;
         mapLink.hidden = !hasReportPoint(report);
-        if (mapLink.hidden) mapLink.removeAttribute('href');
-        else mapLink.href = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=18/${latitude}/${longitude}`;
+        mapLink.onclick = mapLink.hidden ? null : () => openReportLocation(report);
+        const cityLink = $('#detail-city-link');
+        cityLink.hidden = !admin;
+        cityLink.onclick = admin ? () => openCityComposer(report) : null;
         $('#detail-description').textContent = report.description || 'Brak opisu.';
         const source = $('#detail-source');
         source.hidden = !admin;

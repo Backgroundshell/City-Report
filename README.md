@@ -15,7 +15,7 @@ Otwórz [http://127.0.0.1:8000](http://127.0.0.1:8000/).
 
 ## Lokalizacja zgłoszenia
 
-W formularzu wpisz ulicę i miejscowość, kliknij **Szukaj** i wybierz adres, jeśli pojawi się kilka wyników. Możesz też kliknąć mapę lub wybrać **Użyj mojej lokalizacji (GPS)**. GPS wymaga zgody przeglądarki oraz HTTPS lub localhost. Wskazany punkt można zapisać także wtedy, gdy w pobliżu nie ma adresu. Link w szczegółach zgłoszenia otwiera jego położenie na mapie.
+W formularzu wpisz ulicę i miejscowość, kliknij **Szukaj** i wybierz adres, jeśli pojawi się kilka wyników. Możesz też kliknąć mapę lub wybrać **Użyj mojej lokalizacji (GPS)**. GPS wymaga zgody przeglądarki oraz HTTPS lub localhost. Wskazany punkt można zapisać także wtedy, gdy w pobliżu nie ma adresu. Przycisk **Otwórz lokalizację na mapie** w szczegółach zgłoszenia otwiera interaktywną mapę wewnątrz CityReport. Zamknij ją przyciskiem lub klawiszem Esc, aby wrócić do szczegółów.
 
 Po wskazaniu punktu formularz wyświetla pobliski adres w polu adresu i przy pinezce. Zgłoszenie zachowuje dokładne położenie wybranego punktu.
 

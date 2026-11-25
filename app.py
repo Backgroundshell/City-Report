@@ -10,6 +10,7 @@ import sqlite3
 import urllib.error
 import urllib.request
 import unicodedata
+from contextlib import closing
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from http.cookies import SimpleCookie
@@ -17,6 +18,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from locations import coordinates, lookup_location
+import city
 
 ROOT = Path(__file__).parent
 DB_PATH = ROOT / "cityreport.db"
@@ -264,6 +266,20 @@ def init_db():
         CREATE TABLE IF NOT EXISTS reports(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL REFERENCES users(id),category_id INTEGER NOT NULL REFERENCES categories(id),title TEXT NOT NULL,description TEXT NOT NULL,address TEXT NOT NULL,latitude REAL,longitude REAL,status TEXT NOT NULL DEFAULT 'Nowe',photo_name TEXT,photo_data TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS audit_log(id INTEGER PRIMARY KEY AUTOINCREMENT,event_type TEXT NOT NULL,entity TEXT NOT NULL,entity_id INTEGER,details TEXT NOT NULL,created_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id),expires_at INTEGER NOT NULL);
+        CREATE TABLE IF NOT EXISTS city_cases(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id INTEGER NOT NULL UNIQUE REFERENCES reports(id) ON DELETE CASCADE,
+            department TEXT NOT NULL CHECK(department IN ('roads','lighting','cleaning','greenery')),
+            subject TEXT NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('open','in_progress','resolved')),
+            created_by INTEGER NOT NULL REFERENCES users(id),created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS city_messages(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            case_id INTEGER NOT NULL REFERENCES city_cases(id) ON DELETE CASCADE,
+            author_id INTEGER NOT NULL REFERENCES users(id),
+            direction TEXT NOT NULL CHECK(direction IN ('outgoing','incoming')),
+            body TEXT NOT NULL,created_at TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS city_messages_case_id ON city_messages(case_id,id);
         """)
         c.execute("BEGIN")
         if "password_hash" not in {r[1] for r in c.execute("PRAGMA table_info(users)")}:
@@ -364,6 +380,19 @@ class Handler(BaseHTTPRequestHandler):
             if path=="/api/session": return self.send_json({"user":user},200 if user else 401)
             if path.startswith("/api/"):
                 if not user: return self.send_json({"error":"Zaloguj się, aby kontynuować"},401)
+                if path.startswith("/api/city/"):
+                    if user["role"] != "Administrator":
+                        return self.send_json({"error":"Ta funkcja jest dostępna dla administratora"},403)
+                    try:
+                        with closing(db()) as connection:
+                            if path == "/api/city/cases":
+                                return self.send_json(city.list_cases(connection))
+                            case_match = re.fullmatch(r"/api/city/cases/([0-9]{1,19})", path)
+                            if case_match:
+                                return self.send_json(city.get_case(connection, int(case_match[1])))
+                    except city.CityError as error:
+                        return self.send_json({"error":str(error)},error.status)
+                    return self.send_json({"error":"Nie znaleziono zasobu"},404)
                 if path=="/api/overview": return self.send_json(overview(user))
                 match = re.fullmatch(r"/api/reports/([0-9]{1,19})", path)
                 if match:
@@ -405,6 +434,25 @@ class Handler(BaseHTTPRequestHandler):
             if path=="/api/logout":
                 with db() as c: c.execute("DELETE FROM sessions WHERE token_hash=?",(hashlib.sha256(self.session_token().encode()).hexdigest(),))
                 return self.send_json({"ok":True},cookie="cityreport_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0")
+            if path.startswith("/api/city/"):
+                if user["role"] != "Administrator":
+                    return self.send_json({"error":"Ta funkcja jest dostępna dla administratora"},403)
+                with closing(db()) as connection, connection:
+                    if path == "/api/city/cases":
+                        result = city.create_case(connection, user, data, now())
+                        response_status = 201
+                    else:
+                        case_match = re.fullmatch(r"/api/city/cases/([0-9]{1,19})/(messages|settings)", path)
+                        if not case_match:
+                            return self.send_json({"error":"Nieznana operacja"},404)
+                        case_id = city.valid_id(int(case_match[1]))
+                        if case_match[2] == "messages":
+                            result = city.add_message(connection, case_id, user, data, now())
+                            response_status = 201
+                        else:
+                            result = city.update_case(connection, case_id, data, now())
+                            response_status = 200
+                return self.send_json(result, response_status)
             if (path in ("/api/ai/chat","/api/categories") or (path.startswith("/api/reports/") and path.endswith("/status"))) and user["role"]!="Administrator":
                 return self.send_json({"error":"Ta funkcja jest dostępna dla administratora"},403)
             if path in ("/api/locations/search", "/api/locations/reverse"):
@@ -470,9 +518,10 @@ class Handler(BaseHTTPRequestHandler):
                         result.update(ai_generated=source=="ai", description_source=source)
                     return self.send_json(result)
                 if path.startswith("/api/reports/") and path.endswith("/status"):
-                    report_id=int(path.split("/")[3]); status=data.get("status","Nowe"); c.execute("UPDATE reports SET status=?,updated_at=? WHERE id=?",(status,now(),report_id)); log_event(c,"UPDATE","report",report_id,f"Zmieniono status zgłoszenia na „{status}”"); return self.send_json({"ok":True})
+                    report_id=int(path.split("/")[3]); status=data.get("status","Nowe"); c.execute("UPDATE reports SET status=?,updated_at=? WHERE id=?",(status,now(),report_id)); city.sync_report_status(c,report_id,status,now()); log_event(c,"UPDATE","report",report_id,f"Zmieniono status zgłoszenia na „{status}”"); return self.send_json({"ok":True})
                 if path=="/api/categories":
                     name=data.get("name","").strip(); cur=c.execute("INSERT INTO categories(name,color) VALUES(?,?)",(name,data.get("color","#2f80ed"))); log_event(c,"CREATE","category",cur.lastrowid,f"Dodano kategorię „{name}”"); return self.send_json({"ok":True})
+        except city.CityError as error: return self.send_json({"error":str(error)},error.status)
         except (ValueError,sqlite3.Error,RuntimeError) as error: return self.send_json({"error":str(error)},400)
         self.send_json({"error":"Nieznana operacja"},404)
     def log_message(self,*_): pass

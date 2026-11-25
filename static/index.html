@@ -1,15 +1,70 @@
-<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CityReport — problemy w mieście</title><link rel="stylesheet" href="/vendor/leaflet/leaflet.css"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/resident.css"><link rel="stylesheet" href="/chat.css?v=4"></head><body class="auth-pending">
-<aside><div class="brand"><b>CR</b><strong>CityReport</strong></div><p class="eyebrow" data-role="Mieszkaniec">MIESZKANIEC</p><nav data-role="Mieszkaniec"><button class="active" data-view="home">⌂ <span>Moje zgłoszenia</span></button><button data-action="new-report">＋ <span>Zgłoś problem</span></button></nav><p class="eyebrow" data-role="Administrator">ADMINISTRATOR</p><nav class="admin-nav" data-role="Administrator"><button data-view="admin">♙ <span>Panel obsługi</span></button><button data-view="ai">✦ <span>Asystent AI</span></button></nav><div class="side-bottom"><div class="profile"><em id="profile-initials"></em><div><b id="profile-name"></b><small id="profile-role"></small></div></div><button type="button" class="logout" id="logout">Wyloguj się <span aria-hidden="true">↗</span></button></div></aside>
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CityReport — problemy w mieście</title><link rel="stylesheet" href="/vendor/leaflet/leaflet.css"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/resident.css"><link rel="stylesheet" href="/maps.css?v=5"><link rel="stylesheet" href="/chat.css?v=4"><link rel="stylesheet" href="/city.css?v=1"></head><body class="auth-pending">
+<aside><div class="brand"><b>CR</b><strong>CityReport</strong></div><p class="eyebrow" data-role="Mieszkaniec">MIESZKANIEC</p><nav data-role="Mieszkaniec"><button class="active" data-view="home">⌂ <span>Moje zgłoszenia</span></button><button data-action="new-report">＋ <span>Zgłoś problem</span></button></nav><p class="eyebrow" data-role="Administrator">ADMINISTRATOR</p><nav class="admin-nav" data-role="Administrator"><button data-view="admin">♙ <span>Panel obsługi</span></button><button data-view="city" aria-label="Kontakt z miastem" title="Kontakt z miastem"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-3 3V11.5A8.5 8.5 0 0 1 9.5 3h3a8.5 8.5 0 0 1 8.5 8.5Z"/><path d="M7 10h8m-8 4h5"/></svg><span>Kontakt z miastem</span></button><button data-view="ai">✦ <span>Asystent AI</span></button></nav><div class="side-bottom"><div class="profile"><em id="profile-initials"></em><div><b id="profile-name"></b><small id="profile-role"></small></div></div><button type="button" class="logout" id="logout">Wyloguj się <span aria-hidden="true">↗</span></button></div></aside>
 <main><header><div><p class="crumb">CityReport / <b id="crumb">Mapa zgłoszeń</b></p><h1 id="title">Dzień dobry, Jan <span>✦</span></h1></div></header>
 <section id="view-home" class="view" data-role="Mieszkaniec"><div class="resident-hero"><div><small>STREFA MIESZKAŃCA</small><h2>Masz problem<br> w swojej okolicy?</h2><p>Dodaj zdjęcie i lokalizację. Możesz opisać problem samodzielnie albo poprosić lokalne AI o propozycję opisu.</p><button class="primary" id="hero-report">＋ Zgłoś problem</button></div><div class="hero-mark">✦</div></div><div class="resident-stats" id="stats"></div><section class="panel my-reports"><div class="panel-head"><div><h3>Moje zgłoszenia</h3><p>Tu sprawdzisz postęp każdej zgłoszonej sprawy.</p></div><button class="primary" id="my-report-button">＋ Dodaj problem</button></div><div id="recent"></div></section></section>
 <section id="view-admin" class="view hidden" data-role="Administrator"><div class="section-head"><div><small>STREFA ADMINISTRATORA</small><h2>Panel obsługi</h2><p>Widok oddzielony od strefy mieszkańca: wszystkie zgłoszenia, statusy i monitoring.</p></div><div class="pill">● SYSTEM ONLINE</div></div>
   <section class="panel admin-map-panel" aria-labelledby="admin-map-title">
-    <div class="panel-head"><div><h3 id="admin-map-title">Mapa zgłoszeń</h3><p id="admin-map-summary"></p></div></div>
+    <div class="panel-head map-panel-head">
+      <div class="map-heading">
+        <span class="map-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
+        <div><h3 id="admin-map-title">Mapa zgłoszeń</h3><p id="admin-map-summary" role="status"></p></div>
+      </div>
+      <button type="button" id="admin-map-fit" class="map-fit-button" aria-label="Pokaż wszystkie zgłoszenia na mapie" title="Pokaż wszystkie zgłoszenia na mapie" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4"/><circle cx="12" cy="12" r="3"/></svg><span>Pokaż wszystkie</span></button>
+    </div>
     <div id="admin-map" role="region" aria-labelledby="admin-map-title" aria-describedby="admin-map-summary"></div>
+    <div class="map-footer">
+      <ul class="map-legend" aria-label="Legenda statusów zgłoszeń">
+        <li><span class="map-legend-symbol map-legend-symbol--new" aria-hidden="true">+</span>Nowe</li>
+        <li><span class="map-legend-symbol map-legend-symbol--progress" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><path d="M12 8v4l3 2"/></svg></span>W toku</li>
+        <li><span class="map-legend-symbol map-legend-symbol--resolved" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 12 4 4 8-8"/></svg></span>Rozwiązane</li>
+        <li><span class="map-legend-symbol map-legend-symbol--group" aria-hidden="true">2</span>Kilka zgłoszeń</li>
+      </ul>
+      <p>Kliknij znacznik, aby zobaczyć szczegóły.</p>
+    </div>
     <p id="admin-map-error" role="status" hidden>Nie udało się wczytać mapy. Wszystkie zgłoszenia znajdziesz w tabeli poniżej.</p>
     <details id="admin-map-missing" hidden><summary></summary><div></div></details>
   </section>
   <div class="admin-grid"><section class="panel"><div class="panel-head"><div><h3>Wszystkie zgłoszenia</h3><p>Aktualizuj status bezpośrednio z tabeli.</p></div></div><div id="admin-table"></div></section><section class="panel categories"><div class="panel-head"><div><h3>Kategorie</h3><p>Porządkuj typy problemów.</p></div><button class="link" id="add-category">＋ Dodaj</button></div><div id="category-list"></div></section></div><section class="panel audit"><div class="panel-head"><div><h3>Dziennik operacji</h3><p>Pełny monitoring zmian w systemie.</p></div><span class="db">● SQLite / audit_log</span></div><div id="audit-list"></div></section></section>
+<section id="view-city" class="view hidden" data-role="Administrator" hidden>
+  <div class="section-head city-section-head">
+    <div><small>WSPÓŁPRACA ZE SŁUŻBAMI</small><h2>Kontakt z miastem</h2><p>Łącz zgłoszenia z właściwymi służbami i śledź postępy napraw.</p></div>
+    <button type="button" class="primary" id="city-new-case">＋ Nowa sprawa</button>
+  </div>
+  <p class="city-demo-note"><span>TRYB DEMO</span>Korespondencja zostaje w CityReport. Wiadomości i odpowiedzi służb zapisujesz lokalnie.</p>
+  <div class="city-metrics" id="city-metrics" aria-label="Podsumowanie spraw miejskich"></div>
+  <p id="city-feedback" class="city-feedback" role="status"></p>
+  <div class="city-layout">
+    <section class="panel city-inbox" aria-labelledby="city-inbox-title">
+      <div class="city-inbox-heading"><h3 id="city-inbox-title">Sprawy miejskie</h3><button type="button" class="link" id="city-refresh">Odśwież</button></div>
+      <div class="city-filters">
+        <label class="sr-only" for="city-search">Szukaj sprawy lub adresu</label><input type="search" id="city-search" placeholder="Szukaj sprawy lub adresu">
+        <label class="sr-only" for="city-filter">Etap naprawy</label><select id="city-filter"><option value="all">Wszystkie etapy</option><option value="open">Otwarte</option><option value="in_progress">W realizacji</option><option value="resolved">Zakończone</option></select>
+      </div>
+      <div id="city-case-list" aria-label="Lista spraw miejskich"></div>
+    </section>
+    <section class="panel city-conversation" aria-label="Szczegóły sprawy i korespondencja">
+      <div id="city-empty" class="city-empty"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11a8 8 0 0 1-8 8H5l-3 3V11a8 8 0 0 1 8-8h3a8 8 0 0 1 8 8Z"/><path d="M7 9h9m-9 4h6"/></svg><h3>Tu zaczyna się współpraca</h3><p>Utwórz sprawę dla zgłoszenia mieszkańca, wybierz służbę i zapisz pierwszą wiadomość.</p></div>
+      <div id="city-case-detail" hidden>
+        <div class="city-case-heading"><p id="city-case-number"></p><h3 id="city-case-title"></h3></div>
+        <div class="city-report-context"><a id="city-report-link" class="report-link"></a><p id="city-report-address"></p><span id="city-report-status"></span></div>
+        <form id="city-settings-form" class="city-settings">
+          <label>Służba miejska<select id="city-case-department" required></select></label>
+          <label>Etap naprawy<select id="city-case-status" required></select></label>
+          <button type="submit" class="ghost">Zapisz</button>
+          <p>Zmiana etapu aktualizuje też status zgłoszenia mieszkańca.</p>
+        </form>
+        <div class="city-history-heading"><h4>Korespondencja</h4><span id="city-message-count"></span></div>
+        <div id="city-messages" role="log" aria-label="Wiadomości w sprawie" aria-live="polite" aria-relevant="additions text"></div>
+        <form id="city-message-form" class="city-message-form">
+          <label for="city-message-direction">Rodzaj wiadomości</label><select id="city-message-direction"><option value="outgoing">Wiadomość do służb</option><option value="incoming">Odpowiedź służb (demo)</option></select>
+          <label class="sr-only" for="city-message-body">Treść wiadomości</label><textarea id="city-message-body" rows="3" required maxlength="4000" placeholder="Dodaj informacje o problemie lub ustaleniach…"></textarea>
+          <div class="city-message-actions"><small>Zapis w lokalnej korespondencji demo.</small><button type="submit" class="primary">Zapisz wiadomość</button></div>
+        </form>
+        <p id="city-action-feedback" class="city-feedback" role="status"></p>
+      </div>
+    </section>
+  </div>
+</section>
 <section id="view-ai" class="view hidden" data-role="Administrator" hidden>
 <div class="section-head"><div><small>TYLKO DLA ADMINISTRATORA</small><h2>Asystent zgłoszeń</h2><p>Zapytaj, czego dotyczą zgłoszenia mieszkańców i na jakim są etapie.</p></div></div>
 <div class="ai-grid"><section class="panel chat" aria-label="Czat administratora">
@@ -31,7 +86,8 @@
       <p id="detail-status">Status zgłoszenia <span id="detail-status-value"></span></p>
       <h2>Adres</h2>
       <p id="detail-address"></p>
-      <a id="detail-map-link" class="report-link" target="_blank" rel="noopener" hidden>Otwórz lokalizację na mapie</a>
+      <button type="button" id="detail-map-link" class="report-link detail-map-button" aria-haspopup="dialog" aria-controls="report-location-dialog" hidden>Otwórz lokalizację na mapie</button>
+      <button type="button" id="detail-city-link" class="report-link detail-city-button" hidden>Kontakt ze służbami miejskimi</button>
       <h2>Opis zgłoszenia</h2>
       <small id="detail-source" hidden></small>
       <p id="detail-description"></p>
@@ -43,4 +99,24 @@
     </section>
   </article>
 </section></main>
-<dialog id="modal"><form method="dialog" id="modal-form"><button type="button" class="close" aria-label="Zamknij">×</button><div id="modal-body"></div></form></dialog><div id="toast"></div><script src="/chat-format.js?v=4"></script><script src="/vendor/leaflet/leaflet.js"></script><script src="/report-maps.js"></script><script src="/location-picker.js?v=3"></script><script src="/app.js?v=7"></script></body></html>
+<dialog id="city-compose-dialog" class="city-compose-dialog" aria-labelledby="city-compose-title">
+  <button type="button" class="close" id="city-compose-close" aria-label="Zamknij nową sprawę">×</button>
+  <form id="city-compose-form">
+    <p class="city-compose-eyebrow">KONTAKT ZE SŁUŻBAMI · DEMO</p><h2 id="city-compose-title">Nowa sprawa miejska</h2><p class="city-compose-help">Wybierz zgłoszenie i przygotuj wiadomość dla odpowiedniej służby.</p>
+    <label>Zgłoszenie mieszkańca<select id="city-compose-report" required></select></label>
+    <label>Służba miejska<select id="city-compose-department" required></select></label>
+    <label>Temat sprawy<input id="city-compose-subject" required maxlength="160"></label>
+    <label>Pierwsza wiadomość<textarea id="city-compose-body" rows="5" required maxlength="4000"></textarea></label>
+    <p id="city-compose-feedback" class="city-feedback" role="status"></p>
+    <div class="city-compose-actions"><span>Wiadomość zostanie zapisana lokalnie.</span><button type="submit" class="primary">Utwórz sprawę demo</button></div>
+  </form>
+</dialog>
+<dialog id="report-location-dialog" class="report-location-dialog" aria-labelledby="report-location-title">
+  <div class="report-location-heading">
+    <div><h2 id="report-location-title">Mapa zgłoszenia</h2><p id="report-location-address"></p></div>
+    <button type="button" id="report-location-close" class="close" aria-label="Zamknij mapę">×</button>
+  </div>
+  <div id="report-location-map" role="region" aria-labelledby="report-location-title" aria-describedby="report-location-address"></div>
+  <p id="report-location-error" role="status" hidden>Nie udało się wczytać mapy. Adres zgłoszenia znajdziesz powyżej.</p>
+</dialog>
+<dialog id="modal"><form method="dialog" id="modal-form"><button type="button" class="close" aria-label="Zamknij">×</button><div id="modal-body"></div></form></dialog><div id="toast"></div><script src="/chat-format.js?v=4"></script><script src="/vendor/leaflet/leaflet.js"></script><script src="/report-maps.js?v=4"></script><script src="/location-picker.js?v=4"></script><script src="/city.js?v=1"></script><script src="/app.js?v=9"></script></body></html>

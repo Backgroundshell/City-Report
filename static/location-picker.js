@@ -30,7 +30,7 @@ function createLocationPicker(modal, setAddressBusy) {
 
     function placeMarker(latlng, label, center) {
         selected = {latitude: latlng.lat, longitude: latlng.lng, address: label};
-        marker = L.marker(latlng, {alt: 'Miejsce zgłoszenia', keyboard: false}).addTo(map);
+        marker = L.marker(latlng, {icon: createReportIcon(), alt: 'Miejsce zgłoszenia', keyboard: false}).addTo(map);
         if (center) map.setView(latlng, Math.max(map.getZoom(), 17), {animate: false});
     }
 
