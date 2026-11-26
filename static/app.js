@@ -10,20 +10,46 @@ function renderAccount() {
 }
 $('#logout').onclick=async()=>{const button=$('#logout');button.disabled=true;try{const response=await api('/api/logout',{});if(!response.ok&&response.status!==401)throw new Error('Nie udało się wylogować. Spróbuj ponownie.');window.location.replace('/login')}catch(error){toast(error.message);button.disabled=false}};
 function render(){let m=state.metrics;$('#stats').innerHTML=[['Wszystkie zgłoszenia',m.reports,'Twoje zgłoszenia'],['Nowe',m.new,'czeka na weryfikację'],['W toku',m.progress,'w trakcie obsługi'],['Rozwiązane',m.resolved,'problemów usuniętych']].map(x=>`<div><small>${x[0]}</small><strong>${x[1]}</strong><span>${x[2]}</span></div>`).join('');$('#recent').innerHTML=state.reports.filter(report=>report.user_id===state.user.id).map(card).join('')||'<p class="empty">Nie masz jeszcze zgłoszeń.</p>';if($('#report-grid'))$('#report-grid').innerHTML=state.reports.filter(r=>(filter==='all'||r.status===filter)&&([r.title,r.address,r.category_name].join(' ').toLowerCase().includes(($('#search')?.value||'').toLowerCase()))).map(card).join('');renderAdminTable();$('#category-list').innerHTML=state.categories.map(c=>`<div class="category"><i style="background:${c.color}"></i>${esc(c.name)}<small>${state.reports.filter(r=>r.category_id===c.id).length} zgłoszenia</small></div>`).join('');$('#audit-list').innerHTML=state.events.slice(0,8).map(e=>`<div class="audit-row"><b>${esc(e.event_type)}</b><span><b>#${e.id}</b> ${esc(e.details)}</span><small>${new Date(e.created_at).toLocaleString('pl-PL')}</small></div>`).join('')}
+const adminReportCollator = new Intl.Collator('pl', {numeric: true, sensitivity: 'base'});
+function sortedAdminReports(reports, order) {
+    const [field, direction] = order.split('-');
+    const statuses = {'Nowe': 0, 'W toku': 1, 'Rozwiązane': 2};
+    const sign = direction === 'asc' ? 1 : -1;
+    return [...reports].sort((a, b) => {
+        let comparison;
+        switch (field) {
+            case 'priority':
+                comparison = chatPriorities[reportPriority(a.priority)].rank - chatPriorities[reportPriority(b.priority)].rank;
+                break;
+            case 'status':
+                comparison = (statuses[a.status] ?? 3) - (statuses[b.status] ?? 3);
+                break;
+            case 'title':
+            case 'category_name':
+                comparison = adminReportCollator.compare(a[field] || '', b[field] || '');
+                break;
+            default:
+                comparison = (Date.parse(a.created_at) || 0) - (Date.parse(b.created_at) || 0);
+        }
+        return sign * comparison || b.id - a.id;
+    });
+}
 function renderAdminTable() {
     const panel = $('#admin-table');
     if (state.user.role !== 'Administrator') {
         panel.replaceChildren();
         return;
     }
+    const reports = sortedAdminReports(state.reports, $('#admin-sort').value);
     panel.innerHTML = '<table><thead><tr><th>ID / Problem</th><th>Kategoria</th><th>Status</th><th>Priorytet</th></tr></thead><tbody>'
-        + state.reports.map(r => `<tr><td><b><a class="report-link" href="#/reports/${r.id}">#${r.id} ${esc(r.title)}</a></b><small>${esc(r.address)}</small></td><td>${esc(r.category_name)}</td><td></td><td></td></tr>`).join('')
+        + reports.map(r => `<tr><td><b><a class="report-link" href="#/reports/${r.id}">#${r.id} ${esc(r.title)}</a></b><small>${esc(r.address)}</small></td><td>${esc(r.category_name)}</td><td></td><td></td></tr>`).join('')
         + '</tbody></table>';
     panel.querySelectorAll('tbody tr').forEach((row, index) => {
-        row.children[2].append(createStatusEditor(state.reports[index]));
-        row.children[3].append(createPriorityEditor(state.reports[index]));
+        row.children[2].append(createStatusEditor(reports[index]));
+        row.children[3].append(createPriorityEditor(reports[index]));
     });
 }
+$('#admin-sort').addEventListener('change', renderAdminTable);
 function createStatusEditor(report) {
     const select = document.createElement('select');
     select.className = 'status';
@@ -89,7 +115,7 @@ function createPriorityEditor(report) {
     };
     return select;
 }
-function card(r){const priority=reportPriority(r.priority);return `<article class="report-card"><div class="card-top"><span class="category-dot" style="background:${r.category_color}"></span><small>${esc(r.category_name)}</small><span class="${statusBadgeClass(r.status)}">${esc(r.status)}</span></div><h3><a class="report-link" href="#/reports/${r.id}">${esc(r.title||`Zgłoszenie #${r.id}`)}</a></h3><p>${esc(r.description)}</p><footer><span>⌖ ${esc(r.address)}</span><span class="priority-badge priority-${priority}">${esc(reportPriorityLabel(priority))}</span><span>#${r.id}</span></footer></article>`}
+function card(r){const priority=reportPriority(r.priority);return `<article class="report-card"><div class="card-top"><span class="category-dot" style="background:${r.category_color}"></span><small>${esc(r.category_name)}</small><span class="${statusBadgeClass(r.status)}">${esc(r.status)}</span></div><h3><a class="report-link" href="#/reports/${r.id}">${esc(r.title||`Zgłoszenie #${r.id}`)}</a></h3><p>${esc(r.description)}</p><footer><span>⌖ ${esc(r.address)}</span>${state.user.role==='Administrator'?`<span class="priority-badge priority-${priority}">${esc(reportPriorityLabel(priority))}</span>`:''}<span>#${r.id}</span></footer></article>`}
 function view(name){if(['admin','ai','city'].includes(name)&&state.user?.role!=='Administrator')return;$$('.view').forEach(x=>x.classList.add('hidden'));$(`#view-${name}`).classList.remove('hidden');let names={home:'Mapa zgłoszeń',reports:'Wszystkie zgłoszenia',admin:'Panel administratora',ai:'Asystent AI',city:'Kontakt z miastem',detail:'Zgłoszenie'};$('#crumb').textContent=names[name];$('#title').innerHTML=name==='home'?`Dzień dobry, ${esc(state.user?.name.split(' ')[0]||'')} <span>✦</span>`:names[name];$$('nav button').forEach(x=>x.classList.toggle('active',x.dataset.view===name))}
 $$('[data-view]').forEach(x=>x.onclick=()=>{location.hash='/'+x.dataset.view});$$('[data-action="new-report"]').forEach(x=>x.onclick=reportModal);$('#status-filter')?.addEventListener('change',e=>{filter=e.target.value;render()});$('#search')?.addEventListener('input',render);
 function toast(t){let e=$('#toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2500)}
@@ -154,13 +180,10 @@ async function showReport(id, signal) {
             status.className = statusBadgeClass(report.status);
         }
         $('#detail-address').textContent = report.address || 'Brak adresu.';
+        $('#detail-priority').hidden = !admin;
         const priority = $('#detail-priority-value');
         priority.className = '';
-        if (admin) priority.replaceChildren(createPriorityEditor(report));
-        else {
-            priority.textContent = reportPriorityLabel(report.priority);
-            priority.className = 'priority-badge priority-' + reportPriority(report.priority);
-        }
+        priority.replaceChildren(...(admin ? [createPriorityEditor(report)] : []));
         const priorityInfo = $('#detail-priority-info');
         priorityInfo.hidden = !admin;
         priorityInfo.textContent = admin ? (report.priority_source === 'ai' ? 'Zapisany z AI: ' + (report.priority_reason || '')

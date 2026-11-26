@@ -118,10 +118,13 @@ function reportMapList(reports) {
         const status = document.createElement('span');
         status.className = 'map-status map-status--' + reportMapStatus(report.status);
         status.textContent = report.status;
-        const priority = document.createElement('span');
-        priority.className = 'priority-badge priority-' + reportPriority(report.priority);
-        priority.textContent = reportPriorityLabel(report.priority);
-        meta.append(number, status, priority);
+        meta.append(number, status);
+        if (state.user.role === 'Administrator') {
+            const priority = document.createElement('span');
+            priority.className = 'priority-badge priority-' + reportPriority(report.priority);
+            priority.textContent = reportPriorityLabel(report.priority);
+            meta.append(priority);
+        }
         const link = document.createElement('a');
         link.className = 'report-link map-report-title';
         link.href = '#/reports/' + report.id;

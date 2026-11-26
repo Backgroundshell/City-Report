@@ -19,7 +19,15 @@ Po aktualizacji backendu uruchom proces Pythona ponownie i odśwież przeglądar
 
 Przycisk z ikoną znajduje się na samym panelu: **Zwiń panel boczny** zmniejsza nawigację do wąskiego paska o szerokości 44 pikseli i zwiększa miejsce na zawartość. Na pasku pozostaje przycisk **Rozwiń panel boczny**, którym przywrócisz pełny panel. Po zwinięciu nawigacja i profil są ukryte, ale pasek oraz jego przycisk pozostają widoczne. Działa to w strefie mieszkańca i administratora, także na małych ekranach; można użyć klawisza Enter lub Spacja. Wybór jest zapamiętywany w tej przeglądarce, jeśli dostępny jest zapis lokalny. Mapy automatycznie dopasowują rozmiar, zachowując poziom przybliżenia.
 
+## Sortowanie zgłoszeń administratora
+
+W **Panelu obsługi** wybierz **Sortuj według** nad tabelą **Wszystkie zgłoszenia**, aby uporządkować wpisy według daty (od najnowszych lub najstarszych), priorytetu (od najwyższego lub najniższego), statusu (od nowych do rozwiązanych lub odwrotnie), tytułu albo kategorii (A–Z lub Z–A, zgodnie z polskim alfabetem). Przy jednakowych wartościach zgłoszenia są porządkowane malejąco według numeru. Domyślnie najnowsze zgłoszenia są pierwsze.
+
+Wybrana kolejność pozostaje aktywna przy przechodzeniu między widokami oraz zapisywaniu zmian statusu i priorytetu; zmienione zgłoszenia trafiają na odpowiednie miejsca. Odświeżenie strony przywraca kolejność od najnowszych.
+
 ## Lokalizacja zgłoszenia
+
+Okno **Nowe zgłoszenie** ma szerokość do 800 px i dopasowuje się do mniejszych ekranów, zachowując odstęp od ich krawędzi.
 
 W formularzu wpisz ulicę i miejscowość, kliknij **Szukaj** i wybierz adres, jeśli pojawi się kilka wyników. Możesz też kliknąć mapę lub wybrać **Użyj mojej lokalizacji (GPS)**. GPS wymaga zgody przeglądarki oraz HTTPS lub localhost. Wskazany punkt można zapisać także wtedy, gdy w pobliżu nie ma adresu. Przycisk **Otwórz lokalizację na mapie** w szczegółach zgłoszenia otwiera interaktywną mapę wewnątrz CityReport. Zamknij ją przyciskiem lub klawiszem Esc, aby wrócić do szczegółów.
 
@@ -31,7 +39,7 @@ Mapa pobiera kafelki OpenStreetMap. Backend wysyła wyszukiwany adres lub wybran
 
 ## Zapisane priorytety zgłoszeń
 
-Każde nowe i istniejące zgłoszenie ma zapisany priorytet: **Krytyczny**, **Wysoki**, **Średni** lub **Niski** (`critical`, `high`, `medium`, `low`). Domyślny priorytet to **Średni**. Administrator może zmienić go w tabeli panelu obsługi lub w szczegółach zgłoszenia. Mieszkaniec widzi priorytet własnego zgłoszenia, ale nie może go zmieniać. Priorytet jest też widoczny przy zgłoszeniach na mapie i w sprawach miejskich.
+Każde nowe i istniejące zgłoszenie ma zapisany priorytet: **Krytyczny**, **Wysoki**, **Średni** lub **Niski** (`critical`, `high`, `medium`, `low`). Domyślny priorytet to **Średni**. Priorytety są widoczne tylko dla administratora, który może je zmieniać w tabeli panelu obsługi lub w szczegółach zgłoszenia. Administrator widzi je też na kartach zgłoszeń, w dymkach mapy i w sprawach miejskich. Karty i szczegóły zgłoszeń mieszkańca pokazują status naprawy bez informacji o priorytecie; odpowiedzi API dla mieszkańca pomijają pola priorytetu.
 
 W **Asystencie AI** wybierz **Zaproponuj priorytety** i sprawdź propozycje oraz uzasadnienia. Każda karta ma pole zatwierdzenia. Zostaw zaznaczone tylko zgłoszenia, z którymi się zgadzasz, i wybierz **Zapisz wybrane**. Możesz na przykład zatwierdzić zgłoszenia 1 i 3, pozostawiając zgłoszenie 2 bez zmian. **Zapisz wszystkie** zatwierdza wszystkie pozostałe propozycje niezależnie od zaznaczenia. Przy dłuższej analizie użyj przycisków zaznaczania i odznaczania wszystkich kart. Początkowo wszystkie propozycje są zaznaczone.
 
@@ -143,6 +151,7 @@ Sprawdzenie w przeglądarce:
 5. W formularzu zgłoszenia dodaj zdjęcie i kliknij **Zaproponuj opis ze zdjęcia**. Opis nadal powinien pochodzić z modelu wizyjnego Qwen, a kolejne pytanie w czacie z modelu GPT-OSS.
 6. Przy zatrzymanym serwerze LM Studio sprawdź czytelny błąd i możliwość ponowienia analizy. Testy automatyczne obejmują również błędny JSON, brakujące wyniki, nieznane numery, wszystkie priorytety, pustą listę i błędy autoryzacji.
 7. Wpisz „give me only simular reports and add priorityes for them”. Wynik powinien zawierać wyłącznie potwierdzone pary lub grupy, priorytet każdego wyniku, powiązane numery i fragmenty opisów. Gdy brakuje danych lub podobieństw, powinien pojawić się komunikat zamiast przypadkowych grup kategorii.
+8. W tabeli **Wszystkie zgłoszenia** sprawdź oba kierunki dla każdego pola sortowania. Zmień status lub priorytet podczas sortowania według tego pola i potwierdź, że aktualizowane jest właściwe zgłoszenie, które trafia na odpowiednie miejsce. Sprawdź kontrolkę sortowania przy szerokości 390 px i upewnij się, że linki zgłoszeń nadal otwierają właściwe szczegóły.
 
 Po aktualizacji backendu uruchom ponownie `python app.py` i odśwież stronę. Zasoby czatu mają wersjonowane adresy, a serwer wymaga ponownej walidacji pamięci podręcznej, aby przeglądarka pobierała aktualny renderer.
 
@@ -151,7 +160,7 @@ Po aktualizacji backendu uruchom ponownie `python app.py` i odśwież stronę. Z
 1. W strefie mieszkańca kliknij „Zgłoś problem”.
 2. Dodaj zdjęcie. Opis możesz wpisać samodzielnie albo zostawić pusty.
 3. Backend wyśle zdjęcie do lokalnego modelu wizyjnego i zwróci sugestię opisu. Mieszkaniec może ją zaakceptować, zmienić lub wpisać własny tekst przed wysłaniem.
-4. W strefie mieszkańca sprawdź listę własnych zgłoszeń i ich statusy.
+4. W strefie mieszkańca sprawdź listę własnych zgłoszeń i ich statusy. Po zmianie priorytetu przez administratora upewnij się, że karty i szczegóły mieszkańca nadal pokazują status naprawy bez priorytetu, a odpowiedzi API pomijają pola priorytetu.
 5. W panelu administratora zmień status zgłoszenia i pokaż zapis w `audit_log`.
 6. Zmień priorytet jednego zgłoszenia ręcznie, następnie otwórz Asystenta AI, sprawdź propozycje i zapisz je. Odśwież stronę, aby potwierdzić zapis.
 

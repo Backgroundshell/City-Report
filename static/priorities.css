@@ -9,6 +9,13 @@
 .priority-editor:disabled { opacity: .6; cursor: wait; }
 #admin-table { overflow-x: auto; }
 .admin-grid > .panel { min-width: 0; }
+.admin-report-heading { align-items: center; flex-wrap: wrap; gap: 16px; }
+.admin-report-sort { display: grid; gap: 6px; max-width: 100%; color: #526976; font-size: .75rem; }
+.admin-report-sort select {
+    min-height: 36px; min-width: 0; max-width: 100%; padding: 7px 10px; border: 1px solid var(--line);
+    border-radius: 8px; background: #fff; color: var(--ink); font: .8125rem 'DM Sans', sans-serif; cursor: pointer;
+}
+.admin-report-sort select:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
 .report-card footer { flex-wrap: wrap; align-items: center; gap: 8px; }
 .detail-priority { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 #detail-priority-info { display: block; margin-top: 7px; color: #526976; font-size: .8125rem; line-height: 1.6; }
@@ -31,6 +38,7 @@
 .chat .priority-apply-actions[aria-busy="true"] button, .chat .priority-selection-toolbar[aria-busy="true"] button { cursor: wait; }
 .map-report-meta .priority-badge { font-size: .6875rem; }
 @media (max-width: 650px) {
+    .admin-report-sort, .admin-report-sort select { width: 100%; }
     .priority-apply-actions, .priority-save-buttons, .priority-save-buttons button { width: 100%; }
     .priority-save-buttons { flex-direction: column; align-items: stretch; }
 }

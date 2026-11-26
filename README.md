@@ -16,7 +16,15 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000/). Restart the Python process
 
 Use the icon button on the sidebar itself: **Zwiń panel boczny** (Collapse sidebar) reduces navigation to a narrow, 44-pixel strip and expands the page content. The button stays on that strip as **Rozwiń panel boczny** (Expand sidebar), so you can restore the full panel. Navigation and profile controls are hidden while collapsed; the strip and its toggle remain visible. It works in resident and administrator views, including on narrow screens, and supports Enter or Space. Your choice is remembered in this browser when local storage is available. Maps automatically resize without changing the zoom level.
 
+## Administrator report sorting
+
+In **Panel obsługi**, use **Sortuj według** above **Wszystkie zgłoszenia** to sort by date (newest or oldest first), priority (highest or lowest first), status (New to Resolved or the reverse), title, or category (A–Z or Z–A, using Polish alphabetical order). Reports with equal sort values are ordered by descending report ID. The default is newest first.
+
+The selected order stays active when navigating within the app or saving status and priority changes; changed reports move to their new position. Refreshing the page resets sorting to newest first.
+
 ## Report locations and maps
+
+The **Nowe zgłoszenie** (New report) dialog is up to 800 px wide and fits smaller screens with space around its edges.
 
 In the report form, enter a street and city, click **Szukaj** (Search), and choose an address if several matches appear. You can also click the map or use **Użyj mojej lokalizacji (GPS)**. GPS requires browser permission and HTTPS or localhost. A selected point can be saved even if no nearby address is available. The form shows the nearest address while preserving the exact coordinates you selected.
 
@@ -30,7 +38,7 @@ Map tiles come from OpenStreetMap. The backend sends address searches and select
 
 Every new and existing report has a saved priority: **Krytyczny** (Critical), **Wysoki** (High), **Średni** (Medium), or **Niski** (Low). API values are `critical`, `high`, `medium`, and `low`; the default is Medium.
 
-Administrators can change priorities in the administration table or report details. Residents can see priorities on their own reports but cannot change them. Priorities also appear on report cards, map popups, and city cases.
+Priorities are visible only to administrators, who can change them in the administration table or report details. Administrator report cards, map popups, and city cases also show priorities. Resident report cards and details show repair status without priority information; resident API responses omit priority fields.
 
 To use AI, open **Asystent AI**, select **Zaproponuj priorytety**, and review the proposed levels and reasons. Each suggestion has an approval checkbox. Leave checked only the reports you agree with, then click **Zapisz wybrane** (Save selected). For example, approve reports 1 and 3 while leaving report 2 unchanged. **Zapisz wszystkie** (Save all) applies all remaining suggestions regardless of the checkboxes. Select-all and clear-all controls make longer analyses easier to review; all suggestions are initially selected.
 
@@ -131,12 +139,13 @@ python -m unittest discover -s tests -v
 Browser checks:
 
 1. Submit a resident report with a location and optional photo. Verify that it opens on the in-app map.
-2. Change its priority manually as an administrator, refresh, and check the resident's read-only badge.
+2. Change its priority manually as an administrator and refresh to confirm persistence. Sign in as the resident and verify that report cards and details still show repair status without priority information, and that report API responses omit priority fields.
 3. Generate three AI suggestions, approve only the first and third, and verify the second report remains unchanged. Then approve the remaining suggestion or use Save all, and check persistence.
 4. Change a selected report after analysis and verify that its save is rejected without partial updates. Change only an unchecked report and verify it does not block saving other suggestions.
 5. Check report cards, map popups, AI cards, and the city conversation view at a narrow viewport such as 390 px.
 6. Test photo suggestions with the vision model and chat/priority analysis with the chat model.
 7. Stop the model server and verify that a failed analysis preserves saved priorities and can be retried.
+8. In **Wszystkie zgłoszenia**, check both directions for each sort field. Change a status or priority while sorting by that field and confirm the correct report is updated and moves to its new position. Check the sorting control at 390 px and verify that report links still open the correct details.
 
 Static assets have versioned URLs and require cache revalidation. Restart the backend and refresh the browser after updates.
 
@@ -144,7 +153,7 @@ Static assets have versioned URLs and require cache revalidation. Restart the ba
 
 1. Sign in as a resident and select **Zgłoś problem**.
 2. Add a photo and location; write a description or request an editable AI suggestion.
-3. Submit the report and inspect its saved status and priority.
+3. Submit the report and inspect its saved status.
 4. Sign in as an administrator, update repair status and priority, and inspect the audit log.
 5. Review and save AI priority proposals, then refresh to confirm persistence.
 6. Create a local city case and record a demo reply or repair update.

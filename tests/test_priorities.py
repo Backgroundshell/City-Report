@@ -105,8 +105,12 @@ class ReportPriorityTests(unittest.TestCase):
             self.assertEqual(admin_report["priority_source"], "manual")
             self.assertEqual(admin_report["priority_version"], version)
             self.assertIsNone(admin_report["priority_reason"])
-            self.assertEqual(resident_report["priority"], value)
-            self.assertNotIn("priority_reason", resident_report)
+            self.assertFalse(any(key.startswith("priority") for key in resident_report))
+            admin_overview = self.request("GET", "/api/overview", cookie=self.admin)[2]
+            resident_overview = self.request("GET", "/api/overview", cookie=self.resident)[2]
+            self.assertEqual(next(report["priority"] for report in admin_overview["reports"] if report["id"] == self.ids[0]), value)
+            self.assertTrue(resident_overview["reports"])
+            self.assertTrue(all(not any(key.startswith("priority") for key in report) for report in resident_overview["reports"]))
         before = self.snapshot()
         app.init_db()
         self.assertEqual(self.snapshot(), before)
