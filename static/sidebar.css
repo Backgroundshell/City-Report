@@ -1,6 +1,15 @@
 #app-sidebar { z-index: 10; }
 .sidebar-content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 #app-sidebar .brand { padding-right: 44px; }
+#app-sidebar .brand b {
+    display: grid;
+    place-items: center;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    line-height: 1;
+}
 .sidebar-toggle {
     position: absolute;
     top: 20px;
@@ -29,6 +38,6 @@ body.sidebar-collapsed #app-sidebar .sidebar-toggle { right: 4px; }
 body.sidebar-collapsed main { margin-left: 44px; max-width: none; }
 @media (max-width: 950px) {
     .sidebar-content { padding-top: 52px; }
-    #app-sidebar .brand { padding-right: 10px; }
+    #app-sidebar .brand { justify-content: center; padding-left: 0; padding-right: 0; }
     #app-sidebar .sidebar-toggle { top: 16px; right: 17px; }
 }

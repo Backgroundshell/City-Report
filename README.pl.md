@@ -17,6 +17,8 @@ Po aktualizacji backendu uruchom proces Pythona ponownie i odśwież przeglądar
 
 ## Panel boczny
 
+Niebieski znaczek logo **CR** ma stały kwadratowy rozmiar 32 × 32 px i wyśrodkowane inicjały, także na wąskich ekranach.
+
 Przycisk z ikoną znajduje się na samym panelu: **Zwiń panel boczny** zmniejsza nawigację do wąskiego paska o szerokości 44 pikseli i zwiększa miejsce na zawartość. Na pasku pozostaje przycisk **Rozwiń panel boczny**, którym przywrócisz pełny panel. Po zwinięciu nawigacja i profil są ukryte, ale pasek oraz jego przycisk pozostają widoczne. Działa to w strefie mieszkańca i administratora, także na małych ekranach; można użyć klawisza Enter lub Spacja. Wybór jest zapamiętywany w tej przeglądarce, jeśli dostępny jest zapis lokalny. Mapy automatycznie dopasowują rozmiar, zachowując poziom przybliżenia.
 
 ## Sortowanie zgłoszeń administratora

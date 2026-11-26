@@ -14,6 +14,8 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000/). Restart the Python process
 
 ## Sidebar
 
+The blue **CR** logo badge is a fixed 32 × 32 px square with centered initials, including on narrow screens.
+
 Use the icon button on the sidebar itself: **Zwiń panel boczny** (Collapse sidebar) reduces navigation to a narrow, 44-pixel strip and expands the page content. The button stays on that strip as **Rozwiń panel boczny** (Expand sidebar), so you can restore the full panel. Navigation and profile controls are hidden while collapsed; the strip and its toggle remain visible. It works in resident and administrator views, including on narrow screens, and supports Enter or Space. Your choice is remembered in this browser when local storage is available. Maps automatically resize without changing the zoom level.
 
 ## Administrator report sorting
