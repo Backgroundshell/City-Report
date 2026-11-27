@@ -15,17 +15,19 @@ Otwórz [http://127.0.0.1:8000](http://127.0.0.1:8000/).
 
 Po aktualizacji backendu uruchom proces Pythona ponownie i odśwież przeglądarkę. Start aplikacji dodaje brakujące tabele i kolumny bez usuwania zgłoszeń oraz kont. W systemie Windows komunikaty startowe używają UTF-8, także przy przekierowaniu do pliku.
 
-## Panel boczny
+## Nawigacja na górze
 
-Wszystkie niebieskie znaczki logo **CR** mają stały kwadratowy rozmiar 32 × 32 px, oryginalne zaokrąglone narożniki i wyśrodkowane inicjały na stronie logowania oraz w panelach bocznych mieszkańca i administratora, także na wąskich ekranach.
+Wszystkie niebieskie znaczki logo **CR** mają stały kwadratowy rozmiar 32 × 32 px, zaokrąglone narożniki i wyśrodkowane inicjały na stronie logowania oraz w górnym pasku nawigacji, także na wąskich ekranach.
 
-Przycisk z ikoną znajduje się na samym panelu: **Zwiń panel boczny** zmniejsza nawigację do wąskiego paska o szerokości 44 pikseli i zwiększa miejsce na zawartość. Na pasku pozostaje przycisk **Rozwiń panel boczny**, którym przywrócisz pełny panel. Po zwinięciu nawigacja i profil są ukryte, ale pasek oraz jego przycisk pozostają widoczne. Działa to w strefie mieszkańca i administratora, także na małych ekranach; można użyć klawisza Enter lub Spacja. Wybór jest zapamiętywany w tej przeglądarce, jeśli dostępny jest zapis lokalny. Mapy automatycznie dopasowują rozmiar, zachowując poziom przybliżenia.
+Nawigacja pozostaje u góry podczas przewijania strony. Na komputerze dostępne sekcje, profil konta i przycisk **Wyloguj się** znajdują się w jednym wierszu. Mieszkaniec może otworzyć własne zgłoszenia lub zgłosić problem, a administrator przełączać się między panelem obsługi, korespondencją miejską i asystentem AI.
+
+Przy szerokości do 1050 px przycisk **Menu** pokazuje lub ukrywa sekcje oraz opcje konta. Obsługuje klawisze Enter i Spacja; Escape zamyka menu i przywraca fokus na przycisku. Wybranie sekcji lub otwarcie formularza zgłoszenia również zamyka menu. Logo i przycisk Menu pozostają widoczne nad treścią strony.
 
 ## Układ responsywny
 
-Strony mieszkańca i administratora wypełniają dostępną szerokość obok panelu bocznego, także na monitorach ultraszerokich. Układy dla tabletów i telefonów mają mniejsze odstępy od krawędzi strony i ustawiają panele pionowo. Zwinięcie lub rozwinięcie panelu bocznego automatycznie dostosowuje szerokość treści i map.
+Strony mieszkańca i administratora wypełniają dostępną szerokość pod górnym paskiem nawigacji, także na monitorach ultraszerokich. Układy dla tabletów i telefonów mają mniejsze odstępy od krawędzi strony i ustawiają panele pionowo. Mapy automatycznie dopasowują rozmiar do okna bez zmiany poziomu przybliżenia.
 
-Aby sprawdzić układ, zmień szerokość okna przeglądarki na 390, 950, 1440, 2560 i 3840 px przy obu stanach panelu bocznego. Sprawdź strony mieszkańca i administratora, korespondencję miejską, asystenta AI oraz szczegóły zgłoszenia: treść powinna sięgać do prawego odstępu strony, a szerokie tabele przewijać się wewnątrz swoich paneli.
+Aby sprawdzić układ, zmień szerokość okna przeglądarki na 390, 950, 1440, 2560 i 3840 px. Sprawdź strony mieszkańca i administratora, korespondencję miejską, asystenta AI oraz szczegóły zgłoszenia: treść powinna sięgać do odstępów po obu stronach, a szerokie tabele przewijać się wewnątrz swoich paneli. Na mniejszych ekranach sprawdź menu myszą i klawiaturą, w tym zamykanie po wybraniu sekcji. Przewiń stronę i upewnij się, że pasek pozostaje widoczny bez zasłaniania nagłówka strony.
 
 ## Kategorie
 
@@ -66,7 +68,7 @@ Po wskazaniu punktu formularz wyświetla pobliski adres w polu adresu i przy pin
 
 W panelu administratora mapa obejmuje zgłoszenia wszystkich mieszkańców. Kliknij pinezkę, aby otworzyć szczegóły zgłoszenia. Liczba na pinezce oznacza kilka zgłoszeń w tym samym miejscu. Zgłoszenia bez zapisanego położenia są dostępne na liście pod mapą.
 
-Mapa w panelu rośnie wraz z wysokością okna: zajmuje 65% wysokości obszaru przeglądarki na komputerze (420–900 px) i 60% na ekranach o szerokości do 650 px (360–520 px). Zmień wysokość okna, aby sprawdzić dopasowanie mapy; jej przyciski i znaczniki powinny działać po zmianie rozmiaru lub przełączeniu panelu bocznego.
+Mapa w panelu rośnie wraz z wysokością okna: zajmuje 65% wysokości obszaru przeglądarki na komputerze (420–900 px) i 60% na ekranach o szerokości do 650 px (360–520 px). Zmień wysokość okna, aby sprawdzić dopasowanie mapy; jej przyciski i znaczniki powinny działać po zmianie rozmiaru lub otwarciu menu nawigacji.
 
 Mapa pobiera kafelki OpenStreetMap. Backend wysyła wyszukiwany adres lub wybrany punkt do usługi Photon. Własną instancję można wskazać zmienną `CITYREPORT_PHOTON_URL`.
 

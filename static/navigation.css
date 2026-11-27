@@ -1,0 +1,57 @@
+.app-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    margin: 0;
+    padding: 14px clamp(17px, 3vw, 55px);
+    border-bottom: 1px solid var(--line);
+    background: var(--white);
+}
+.app-topbar .brand { flex-shrink: 0; padding: 0; }
+.navigation-content { display: flex; flex: 1; align-items: center; gap: 24px; min-width: 0; }
+.app-topbar nav { display: flex; align-items: center; gap: 5px; }
+.app-topbar nav button {
+    min-height: 44px;
+    padding: 10px 12px;
+    gap: 8px;
+    white-space: nowrap;
+    font: 500 .875rem 'DM Sans', sans-serif;
+}
+.app-topbar nav button.active { font-weight: 700; }
+.app-topbar nav button svg { flex-shrink: 0; }
+.topbar-account { display: flex; align-items: center; gap: 16px; margin-left: auto; min-width: 0; }
+.topbar-account .profile { min-width: 0; }
+.topbar-account .profile em { flex-shrink: 0; }
+.topbar-account .profile > div { min-width: 0; }
+.topbar-account .profile b { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-account .logout { width: auto; min-height: 40px; margin: 0; padding: 10px 12px; font-size: 12px; white-space: nowrap; }
+.navigation-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 9px 12px;
+    border: 1px solid #dce5ed;
+    border-radius: 9px;
+    background: var(--white);
+    color: #324d63;
+    font: 600 .875rem 'DM Sans', sans-serif;
+    cursor: pointer;
+}
+.navigation-toggle svg { width: 20px; height: 20px; }
+.navigation-toggle:hover { background: #eef5ff; border-color: #b7d0f0; }
+.navigation-toggle:focus-visible, .app-topbar nav button:focus-visible, .topbar-account .logout:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 3px;
+}
+@media (max-width: 1050px) {
+    .app-topbar { flex-wrap: wrap; gap: 12px; padding: 12px clamp(17px, 3vw, 32px); }
+    .navigation-toggle { display: inline-flex; margin-left: auto; }
+    .navigation-content { flex-basis: 100%; flex-direction: column; align-items: stretch; gap: 14px; }
+    .app-topbar nav { flex-direction: column; align-items: stretch; }
+    .topbar-account { justify-content: space-between; margin: 0; padding-top: 12px; border-top: 1px solid var(--line); }
+}

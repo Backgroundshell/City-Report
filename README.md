@@ -12,17 +12,19 @@ python app.py
 
 Open [http://127.0.0.1:8000](http://127.0.0.1:8000/). Restart the Python process after backend updates, then refresh the browser. Startup adds missing database tables and columns without deleting existing reports or accounts. On Windows, startup logs use UTF-8, including when redirected to a file.
 
-## Sidebar
+## Top navigation
 
-All blue **CR** logo badges use a fixed 32 × 32 px square with the original rounded corners and centered initials on the login page and in the resident and administrator sidebars, including on narrow screens.
+All blue **CR** logo badges use a fixed 32 × 32 px square with rounded corners and centered initials on the login page and in the top navigation, including on narrow screens.
 
-Use the icon button on the sidebar itself: **Zwiń panel boczny** (Collapse sidebar) reduces navigation to a narrow, 44-pixel strip and expands the page content. The button stays on that strip as **Rozwiń panel boczny** (Expand sidebar), so you can restore the full panel. Navigation and profile controls are hidden while collapsed; the strip and its toggle remain visible. It works in resident and administrator views, including on narrow screens, and supports Enter or Space. Your choice is remembered in this browser when local storage is available. Maps automatically resize without changing the zoom level.
+Navigation stays at the top while scrolling. Desktop screens show the available navigation links, account profile, and **Wyloguj się** (Log out) in one row. Residents can open their reports or submit a problem; administrators can switch between the dashboard, city correspondence, and AI assistant.
+
+At widths up to 1050 px, use **Menu** to show or hide the links and account controls. The button supports Enter and Space; Escape closes the menu and returns focus to the button. Choosing a section or opening the report form also closes the menu. The logo and Menu button stay visible above the page content.
 
 ## Responsive layout
 
-Resident and administrator pages fill the available width beside the sidebar, including on ultrawide monitors. Tablet and mobile layouts use smaller page padding and stack panels vertically. Collapsing or expanding the sidebar adjusts the content and map widths automatically.
+Resident and administrator pages fill the available width below the top navigation, including on ultrawide monitors. Tablet and mobile layouts use smaller page padding and stack panels vertically. Maps automatically resize with the window without changing the zoom level.
 
-To verify, resize the browser to 390, 950, 1440, 2560, and 3840 px in both sidebar states. Check the resident dashboard, administrator dashboard, city correspondence, AI assistant, and report details: content should extend to the right page padding, with wide tables scrolling inside their panels.
+To verify, resize the browser to 390, 950, 1440, 2560, and 3840 px. Check the resident dashboard, administrator dashboard, city correspondence, AI assistant, and report details: content should extend to both page paddings, with wide tables scrolling inside their panels. On smaller screens, check the menu with pointer and keyboard, including closing it after navigation. Scroll the page and confirm the top bar stays visible without covering the page heading.
 
 ## Categories
 
@@ -63,7 +65,7 @@ In report details, **Otwórz lokalizację na mapie** opens an interactive map in
 
 The administrator map includes reports from all residents. Pins show report status; a numbered pin groups reports at identical coordinates. Nearby points with different coordinates remain separate pins. Click a pin to open its report list, or **Pokaż wszystkie** to fit all reports. Reports without coordinates are listed below the map. Saved priorities appear in report popups.
 
-The dashboard map grows with window height: 65% of the viewport height on desktop (420–900 px), and 60% on screens up to 650 px wide (360–520 px). Resize the window vertically to check the height adjustment; map controls and markers remain usable after resizing or toggling the sidebar.
+The dashboard map grows with window height: 65% of the viewport height on desktop (420–900 px), and 60% on screens up to 650 px wide (360–520 px). Resize the window vertically to check the height adjustment; map controls and markers remain usable after resizing or opening the navigation menu.
 
 Map tiles come from OpenStreetMap. The backend sends address searches and selected points to Photon. Set `CITYREPORT_PHOTON_URL` to use your own Photon instance.
 
