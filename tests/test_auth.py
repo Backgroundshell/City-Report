@@ -3,7 +3,9 @@ import hashlib
 import http.client
 import io
 import json
-from contextlib import redirect_stderr, redirect_stdout
+from collections import Counter
+from contextlib import closing, redirect_stderr, redirect_stdout
+from datetime import datetime
 from pathlib import Path
 import tempfile
 import threading
@@ -96,6 +98,169 @@ class AuthenticationTests(unittest.TestCase):
             self.assertEqual(after["user"], before["user"])
             self.assertEqual(after["categories"], before["categories"])
             self.assertEqual(sum(event["event_type"] == "DELETE" for event in after["events"]), 2)
+
+    def test_dev_seed_chat_reports_preserves_data_and_edits_and_reaches_ai_context(self):
+        with patch.object(app, "DB_PATH", Path(self.temp.name) / "chat-fixtures.db"), \
+                redirect_stdout(io.StringIO()):
+            app.init_db()
+            original_reports = app.rows("SELECT * FROM reports ORDER BY id")
+            original_users = app.rows("SELECT * FROM users ORDER BY id")
+            original_categories = app.rows("SELECT * FROM categories ORDER BY id")
+            self.assertEqual(dev.main(["seed-chat-reports"]), 0)
+            reports = app.rows("SELECT * FROM reports ORDER BY id")
+            fixtures = [report for report in reports if report["title"].startswith("[TEST AI ")]
+            self.assertEqual(len(fixtures), 150)
+            self.assertEqual(len(reports), len(original_reports) + 150)
+            self.assertEqual(reports[:len(original_reports)], original_reports)
+            self.assertEqual(app.rows("SELECT * FROM users ORDER BY id"), original_users)
+            self.assertEqual(app.rows("SELECT * FROM categories ORDER BY id"), original_categories)
+            self.assertEqual(len({report["title"][:13] for report in fixtures}), 150)
+            self.assertEqual(Counter(report["status"] for report in fixtures),
+                             {"Nowe": 70, "W toku": 40, "Rozwiązane": 40})
+            self.assertEqual(len({report["category_id"] for report in fixtures}), 12)
+            self.assertTrue(all(report["description_source"] == "manual" and report["priority"] == "medium"
+                                and report["priority_source"] == "default" for report in fixtures))
+            for report in fixtures:
+                self.assertTrue(49 < report["latitude"] < 51 and 19 < report["longitude"] < 21)
+                self.assertTrue(datetime.fromisoformat(report["created_at"])
+                                <= datetime.fromisoformat(report["updated_at"])
+                                <= datetime.fromisoformat(app.now()))
+            _, snapshot = app.report_chat_messages("Podsumuj zgłoszenia", [])
+            self.assertEqual({report["id"] for report in snapshot["reports"]}, {report["id"] for report in reports})
+            _, unresolved = app.report_chat_messages("Zaproponuj priorytety", [], prioritize=True)
+            fixture_ids = {report["id"] for report in fixtures}
+            self.assertEqual(len(fixture_ids & {report["id"] for report in unresolved["reports"]}), 110)
+            admin = self.login(admin=True)
+            status, _, body = self.request("GET", "/api/overview", cookie=admin)
+            self.assertEqual(status, 200, body)
+            self.assertEqual(len(json.loads(body)["reports"]), len(reports))
+            with closing(app.db()) as connection, connection:
+                connection.execute("""UPDATE reports SET title=title || ' (sprawdzone)',
+                    priority='high',priority_source='manual',status='W toku' WHERE id=?""", (fixtures[0]["id"],))
+            edited = app.rows("SELECT * FROM reports ORDER BY id")
+            events = app.rows("SELECT * FROM audit_log ORDER BY id")
+            self.assertEqual(dev.main(["seed-chat-reports"]), 0)
+            self.assertEqual(app.rows("SELECT * FROM reports ORDER BY id"), edited)
+            self.assertEqual(app.rows("SELECT * FROM audit_log ORDER BY id"), events)
+            with closing(app.db()) as connection:
+                self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+    def test_dev_seed_chat_reports_missing_category_leaves_database_unchanged(self):
+        with patch.object(app, "DB_PATH", Path(self.temp.name) / "chat-fixtures-missing.db"), \
+                redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            app.init_db()
+            with closing(app.db()) as connection, connection:
+                connection.execute("DELETE FROM categories WHERE name='Inne'")
+            reports = app.rows("SELECT * FROM reports ORDER BY id")
+            events = app.rows("SELECT * FROM audit_log ORDER BY id")
+            self.assertEqual(dev.main(["seed-chat-reports"]), 1)
+            self.assertEqual(app.rows("SELECT * FROM reports ORDER BY id"), reports)
+            self.assertEqual(app.rows("SELECT * FROM audit_log ORDER BY id"), events)
+
+    def test_category_defaults_extend_existing_databases_and_preserve_data(self):
+        with patch.object(app, "DB_PATH", Path(self.temp.name) / "category-upgrade.db"):
+            with patch.object(app, "DEFAULT_CATEGORIES", app.DEFAULT_CATEGORIES[:4]):
+                app.init_db()
+            admin = self.login(admin=True)
+            for name in ("Parkowanie", "Własna kategoria"):
+                status, _, body = self.request("POST", "/api/categories", {
+                    "name": name, "color": "#123456",
+                }, admin)
+                self.assertEqual(status, 200, body)
+            original_categories = app.rows("SELECT * FROM categories ORDER BY id")
+            original_reports = app.rows("SELECT * FROM reports ORDER BY id")
+            original_users = app.rows("SELECT * FROM users ORDER BY id")
+
+            app.init_db()
+            categories = app.rows("SELECT * FROM categories ORDER BY id")
+            by_name = {category["name"]: category for category in categories}
+            self.assertTrue({name for name, _ in app.DEFAULT_CATEGORIES} <= by_name.keys())
+            for category in original_categories:
+                self.assertEqual(by_name[category["name"]], category)
+            self.assertEqual(app.rows("SELECT * FROM reports ORDER BY id"), original_reports)
+            self.assertEqual(app.rows("SELECT * FROM users ORDER BY id"), original_users)
+            with closing(app.db()) as connection:
+                self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+            app.init_db()
+            self.assertEqual(app.rows("SELECT * FROM categories ORDER BY id"), categories)
+
+    def test_road_and_sidewalk_split_preserves_reports_and_existing_categories(self):
+        for separate_road in (False, True):
+            with self.subTest(separate_road=separate_road), patch.object(
+                    app, "DB_PATH", Path(self.temp.name) / f"category-split-{separate_road}.db"):
+                app.init_db()
+                with closing(app.db()) as connection, connection:
+                    sidewalk = dict(connection.execute("SELECT * FROM categories WHERE name='Chodnik'").fetchone())
+                    if separate_road:
+                        legacy_id = connection.execute(
+                            "INSERT INTO categories(name,color) VALUES('Droga i chodnik','#123456')").lastrowid
+                    else:
+                        legacy_id = connection.execute("SELECT id FROM categories WHERE name='Droga'").fetchone()[0]
+                        connection.execute("UPDATE categories SET name='Droga i chodnik',color='#123456' WHERE id=?",
+                                           (legacy_id,))
+                    cases = [
+                        ("Nierówne płyty chodnikowe", "Wystające płyty.", "Chodnik"),
+                        ("Uszkodzony trotuar", "Przy wejściu do parku.", "Chodnik"),
+                        ("Usterka nawierzchni", "Uszkodzone płyty chodnika.", "Chodnik"),
+                        ("Dziura w jezdni", "Dziura obok chodnika.", "Droga"),
+                        ("Uszkodzona droga i chodnik", "Wymaga naprawy.", "Droga"),
+                        ("Nieznana usterka", "Brak szczegółów.", "Droga"),
+                    ]
+                    expected = {}
+                    for title, description, category in cases:
+                        report_id = connection.execute("""INSERT INTO reports
+                            (user_id,category_id,title,description,address,status,created_at,updated_at)
+                            VALUES(2,?,?,?,'Test address','Nowe',?,?)""",
+                            (legacy_id, title, description, app.now(), app.now())).lastrowid
+                        expected[report_id] = category
+                    explicit_sidewalk = connection.execute("""INSERT INTO reports
+                        (user_id,category_id,title,description,address,status,created_at,updated_at)
+                        VALUES(2,?,'Dziura w jezdni','Ręczne przypisanie.','Test address','Nowe',?,?)""",
+                        (sidewalk["id"], app.now(), app.now())).lastrowid
+                    expected[explicit_sidewalk] = "Chodnik"
+                original_reports = app.rows("SELECT * FROM reports ORDER BY id")
+
+                app.init_db()
+                categories = app.rows("SELECT * FROM categories ORDER BY id")
+                by_name = {category["name"]: category for category in categories}
+                self.assertNotIn("Droga i chodnik", by_name)
+                self.assertEqual(by_name["Chodnik"], sidewalk)
+                if not separate_road:
+                    self.assertEqual(by_name["Droga"]["id"], legacy_id)
+                    self.assertEqual(by_name["Droga"]["color"], "#123456")
+                reports = app.rows("SELECT * FROM reports ORDER BY id")
+                self.assertEqual(len(reports), len(original_reports))
+                for before, after in zip(original_reports, reports):
+                    expected_id = by_name[expected[before["id"]]]["id"] if before["id"] in expected else before["category_id"]
+                    self.assertEqual(after, {**before, "category_id": expected_id})
+                with closing(app.db()) as connection:
+                    self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+                app.init_db()
+                self.assertEqual(app.rows("SELECT * FROM categories ORDER BY id"), categories)
+                self.assertEqual(app.rows("SELECT * FROM reports ORDER BY id"), reports)
+
+    def test_residents_can_submit_reports_in_each_new_category(self):
+        with patch.object(app, "DB_PATH", Path(self.temp.name) / "category-reports.db"):
+            app.init_db()
+            resident = self.login()
+            status, _, body = self.request("GET", "/api/overview", cookie=resident)
+            self.assertEqual(status, 200, body)
+            categories = {category["name"]: category for category in json.loads(body)["categories"]}
+            self.assertEqual(len(categories), len(app.DEFAULT_CATEGORIES))
+            for name, color in app.DEFAULT_CATEGORIES[4:]:
+                with self.subTest(category=name):
+                    category = categories[name]
+                    self.assertEqual(category["color"], color)
+                    status, _, body = self.request("POST", "/api/reports", {
+                        "title": "Usterka: " + name, "description": "Problem wymaga naprawy.",
+                        "address": "Rynek, Kraków", "category_id": category["id"],
+                    }, resident)
+                    self.assertEqual(status, 200, body)
+                    report_id = json.loads(body)["id"]
+                    status, _, body = self.request("GET", f"/api/reports/{report_id}", cookie=resident)
+                    self.assertEqual(status, 200, body)
+                    self.assertEqual(json.loads(body)["category_name"], name)
 
     def test_wrong_credentials(self):
         for email in ("jan@cityreport.local", "missing@example.com"):

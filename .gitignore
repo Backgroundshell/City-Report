@@ -1,5 +1,7 @@
 /CityReport_Taras_Hnatiuk_51757.pdf
 /tests/*
 !/tests/test_auth.py
+!/tests/test_city.py
+!/tests/test_priorities.py
 __pycache__/
 *.pyc

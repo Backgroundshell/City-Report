@@ -10,19 +10,46 @@ function renderAccount() {
 }
 $('#logout').onclick=async()=>{const button=$('#logout');button.disabled=true;try{const response=await api('/api/logout',{});if(!response.ok&&response.status!==401)throw new Error('Nie udało się wylogować. Spróbuj ponownie.');window.location.replace('/login')}catch(error){toast(error.message);button.disabled=false}};
 function render(){let m=state.metrics;$('#stats').innerHTML=[['Wszystkie zgłoszenia',m.reports,'Twoje zgłoszenia'],['Nowe',m.new,'czeka na weryfikację'],['W toku',m.progress,'w trakcie obsługi'],['Rozwiązane',m.resolved,'problemów usuniętych']].map(x=>`<div><small>${x[0]}</small><strong>${x[1]}</strong><span>${x[2]}</span></div>`).join('');$('#recent').innerHTML=state.reports.filter(report=>report.user_id===state.user.id).map(card).join('')||'<p class="empty">Nie masz jeszcze zgłoszeń.</p>';if($('#report-grid'))$('#report-grid').innerHTML=state.reports.filter(r=>(filter==='all'||r.status===filter)&&([r.title,r.address,r.category_name].join(' ').toLowerCase().includes(($('#search')?.value||'').toLowerCase()))).map(card).join('');renderAdminTable();$('#category-list').innerHTML=state.categories.map(c=>`<div class="category"><i style="background:${c.color}"></i>${esc(c.name)}<small>${state.reports.filter(r=>r.category_id===c.id).length} zgłoszenia</small></div>`).join('');$('#audit-list').innerHTML=state.events.slice(0,8).map(e=>`<div class="audit-row"><b>${esc(e.event_type)}</b><span><b>#${e.id}</b> ${esc(e.details)}</span><small>${new Date(e.created_at).toLocaleString('pl-PL')}</small></div>`).join('')}
+const adminReportCollator = new Intl.Collator('pl', {numeric: true, sensitivity: 'base'});
+function sortedAdminReports(reports, order) {
+    const [field, direction] = order.split('-');
+    const statuses = {'Nowe': 0, 'W toku': 1, 'Rozwiązane': 2};
+    const sign = direction === 'asc' ? 1 : -1;
+    return [...reports].sort((a, b) => {
+        let comparison;
+        switch (field) {
+            case 'priority':
+                comparison = chatPriorities[reportPriority(a.priority)].rank - chatPriorities[reportPriority(b.priority)].rank;
+                break;
+            case 'status':
+                comparison = (statuses[a.status] ?? 3) - (statuses[b.status] ?? 3);
+                break;
+            case 'title':
+            case 'category_name':
+                comparison = adminReportCollator.compare(a[field] || '', b[field] || '');
+                break;
+            default:
+                comparison = (Date.parse(a.created_at) || 0) - (Date.parse(b.created_at) || 0);
+        }
+        return sign * comparison || b.id - a.id;
+    });
+}
 function renderAdminTable() {
     const panel = $('#admin-table');
     if (state.user.role !== 'Administrator') {
         panel.replaceChildren();
         return;
     }
-    panel.innerHTML = '<table><thead><tr><th>ID / Problem</th><th>Kategoria</th><th>Status</th></tr></thead><tbody>'
-        + state.reports.map(r => `<tr><td><b><a class="report-link" href="#/reports/${r.id}">#${r.id} ${esc(r.title)}</a></b><small>${esc(r.address)}</small></td><td>${esc(r.category_name)}</td><td></td></tr>`).join('')
+    const reports = sortedAdminReports(state.reports, $('#admin-sort').value);
+    panel.innerHTML = '<table><thead><tr><th>ID / Problem</th><th>Kategoria</th><th>Status</th><th>Priorytet</th></tr></thead><tbody>'
+        + reports.map(r => `<tr><td><b><a class="report-link" href="#/reports/${r.id}">#${r.id} ${esc(r.title)}</a></b><small>${esc(r.address)}</small></td><td>${esc(r.category_name)}</td><td></td><td></td></tr>`).join('')
         + '</tbody></table>';
     panel.querySelectorAll('tbody tr').forEach((row, index) => {
-        row.lastElementChild.append(createStatusEditor(state.reports[index]));
+        row.children[2].append(createStatusEditor(reports[index]));
+        row.children[3].append(createPriorityEditor(reports[index]));
     });
 }
+$('#admin-sort').addEventListener('change', renderAdminTable);
 function createStatusEditor(report) {
     const select = document.createElement('select');
     select.className = 'status';
@@ -61,8 +88,35 @@ function statusBadgeClass(status) {
     if (status === 'Rozwiązane') return 'badge done';
     return 'badge';
 }
-function card(r){return `<article class="report-card"><div class="card-top"><span class="category-dot" style="background:${r.category_color}"></span><small>${esc(r.category_name)}</small><span class="${statusBadgeClass(r.status)}">${esc(r.status)}</span></div><h3><a class="report-link" href="#/reports/${r.id}">${esc(r.title||`Zgłoszenie #${r.id}`)}</a></h3><p>${esc(r.description)}</p><footer><span>⌖ ${esc(r.address)}</span><span>#${r.id}</span></footer></article>`}
-function view(name){if(['admin','ai'].includes(name)&&state.user?.role!=='Administrator')return;$$('.view').forEach(x=>x.classList.add('hidden'));$(`#view-${name}`).classList.remove('hidden');let names={home:'Mapa zgłoszeń',reports:'Wszystkie zgłoszenia',admin:'Panel administratora',ai:'Asystent AI',detail:'Zgłoszenie'};$('#crumb').textContent=names[name];$('#title').innerHTML=name==='home'?`Dzień dobry, ${esc(state.user?.name.split(' ')[0]||'')} <span>✦</span>`:names[name];$$('nav button').forEach(x=>x.classList.toggle('active',x.dataset.view===name))}
+function reportPriority(value) { return Object.hasOwn(chatPriorities, value) ? value : 'medium'; }
+function reportPriorityLabel(value) { return chatPriorities[reportPriority(value)].label; }
+function createPriorityEditor(report) {
+    const select = document.createElement('select');
+    let saved = reportPriority(report.priority);
+    select.className = 'priority-editor priority-' + saved;
+    select.setAttribute('aria-label', 'Priorytet zgłoszenia #' + report.id);
+    for (const [value, info] of Object.entries(chatPriorities)) select.add(new Option(info.label, value));
+    select.value = saved;
+    select.onchange = async () => {
+        if (select.disabled || select.value === saved) return;
+        const next = select.value;
+        select.disabled = true;
+        try {
+            const response = await api('/api/reports/' + report.id + '/priority', {priority: next});
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Nie udało się zapisać priorytetu.');
+            saved = next;
+            toast('Priorytet zapisany');
+            await load();
+        } catch (error) {
+            select.value = saved;
+            toast(error instanceof TypeError ? 'Nie można połączyć się z aplikacją.' : error.message);
+        } finally { select.disabled = false; }
+    };
+    return select;
+}
+function card(r){const priority=reportPriority(r.priority);return `<article class="report-card"><div class="card-top"><span class="category-dot" style="background:${r.category_color}"></span><small>${esc(r.category_name)}</small><span class="${statusBadgeClass(r.status)}">${esc(r.status)}</span></div><h3><a class="report-link" href="#/reports/${r.id}">${esc(r.title||`Zgłoszenie #${r.id}`)}</a></h3><p>${esc(r.description)}</p><footer><span>⌖ ${esc(r.address)}</span>${state.user.role==='Administrator'?`<span class="priority-badge priority-${priority}">${esc(reportPriorityLabel(priority))}</span>`:''}<span>#${r.id}</span></footer></article>`}
+function view(name){if(['admin','ai','city'].includes(name)&&state.user?.role!=='Administrator')return;$$('.view').forEach(x=>x.classList.add('hidden'));$(`#view-${name}`).classList.remove('hidden');let names={home:'Mapa zgłoszeń',reports:'Wszystkie zgłoszenia',admin:'Panel administratora',ai:'Asystent AI',city:'Kontakt z miastem',detail:'Zgłoszenie'};$('#crumb').textContent=names[name];$('#title').innerHTML=name==='home'?`Dzień dobry, ${esc(state.user?.name.split(' ')[0]||'')} <span>✦</span>`:names[name];$$('nav button').forEach(x=>x.classList.toggle('active',x.dataset.view===name))}
 $$('[data-view]').forEach(x=>x.onclick=()=>{location.hash='/'+x.dataset.view});$$('[data-action="new-report"]').forEach(x=>x.onclick=reportModal);$('#status-filter')?.addEventListener('change',e=>{filter=e.target.value;render()});$('#search')?.addEventListener('input',render);
 function toast(t){let e=$('#toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2500)}
 let detailRequest;
@@ -71,6 +125,8 @@ function renderRoute() {
     if (!state.user) return;
     detailRequest?.abort();
     const route = location.hash.slice(1);
+    const cityRoute = /^\/city(?:\/([1-9]\d{0,18}))?$/.exec(route);
+    if (!cityRoute) cancelCityView();
     const match = /^\/reports\/([1-9]\d{0,18})$/.exec(route);
     if (match) {
         detailRequest = new AbortController();
@@ -79,9 +135,10 @@ function renderRoute() {
     }
     const admin = state.user.role === 'Administrator';
     previousSection = 'home';
-    if (admin) previousSection = route === '/ai' ? 'ai' : 'admin';
+    if (admin) previousSection = cityRoute ? 'city' : route === '/ai' ? 'ai' : 'admin';
     view(previousSection);
     if (previousSection === 'admin') renderAdminMap(state.reports);
+    if (previousSection === 'city') renderCityView(cityRoute[1] || null);
     document.title = 'CityReport — problemy w mieście';
 }
 async function showReport(id, signal) {
@@ -94,7 +151,7 @@ async function showReport(id, signal) {
     const back = $('#detail-back');
     const origin = previousSection || (state.user.role === 'Administrator' ? 'admin' : 'home');
     back.href = '#/' + origin;
-    back.textContent = {home:'← Moje zgłoszenia', admin:'← Panel obsługi', ai:'← Asystent AI'}[origin];
+    back.textContent = {home:'← Moje zgłoszenia', admin:'← Panel obsługi', ai:'← Asystent AI',city:'← Kontakt z miastem'}[origin];
     const body = $('#detail-body');
     const feedback = $('#detail-feedback');
     const image = $('#detail-image');
@@ -123,11 +180,26 @@ async function showReport(id, signal) {
             status.className = statusBadgeClass(report.status);
         }
         $('#detail-address').textContent = report.address || 'Brak adresu.';
+        $('#detail-priority').hidden = !admin;
+        const priority = $('#detail-priority-value');
+        priority.className = '';
+        priority.replaceChildren(...(admin ? [createPriorityEditor(report)] : []));
+        const priorityInfo = $('#detail-priority-info');
+        priorityInfo.hidden = !admin;
+        priorityInfo.textContent = admin ? (report.priority_source === 'ai' ? 'Zapisany z AI: ' + (report.priority_reason || '')
+            : report.priority_source === 'manual' ? 'Priorytet ustawiony ręcznie.' : 'Domyślny priorytet nowego zgłoszenia.') : '';
+        const priorityAI = $('#detail-ai-priority');
+        priorityAI.hidden = !admin;
+        priorityAI.onclick = admin ? () => {
+            location.hash = '/ai';
+            sendChat('Zaproponuj priorytet dla zgłoszenia #' + report.id + ' i uzasadnij swoją ocenę.', 'prioritize', [report.id]);
+        } : null;
         const mapLink = $('#detail-map-link');
-        const {latitude, longitude} = report;
         mapLink.hidden = !hasReportPoint(report);
-        if (mapLink.hidden) mapLink.removeAttribute('href');
-        else mapLink.href = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=18/${latitude}/${longitude}`;
+        mapLink.onclick = mapLink.hidden ? null : () => openReportLocation(report);
+        const cityLink = $('#detail-city-link');
+        cityLink.hidden = !admin;
+        cityLink.onclick = admin ? () => openCityComposer(report) : null;
         $('#detail-description').textContent = report.description || 'Brak opisu.';
         const source = $('#detail-source');
         source.hidden = !admin;
@@ -276,7 +348,7 @@ function reportModal(){ $('#modal-body').innerHTML=`<div class="modal-inner"><sm
         updateButtons();
     });
 }
-$('#hero-report').onclick=reportModal;$('#my-report-button').onclick=reportModal;$('#add-category').onclick=()=>{let name=prompt('Nazwa nowej kategorii:');if(name)api('/api/categories',{name}).then(()=>{toast('Kategoria dodana');load()})};
+$('#hero-report').onclick=reportModal;$('#my-report-button').onclick=reportModal;
 let chatHistory=[];
 let chatBusy=false;
 let chatRetry=null;
@@ -308,6 +380,8 @@ function addChatAnalysis(result,label){
     element.querySelector('p').classList.add('analysis-summary');
     const cards=chatNode('div','analysis-reports');
     const reports=[...result.reports].sort((a,b)=>chatPriorities[a.priority].rank-chatPriorities[b.priority].rank);
+    const canApprove = reports.length && typeof result.proposal_token === 'string';
+    const choices = new Map();
     for(const report of reports){
         const card=chatNode('article',`analysis-report priority-${report.priority}`);
         const heading=chatNode('div','analysis-report-heading');
@@ -315,8 +389,21 @@ function addChatAnalysis(result,label){
         link.href='#/reports/'+report.id;
         heading.append(link,chatNode('span',`priority-badge priority-${report.priority}`,chatPriorities[report.priority].label));
         card.append(heading,chatNode('h4','',report.title||`Zgłoszenie #${report.id}`));
+        if (canApprove) {
+            const choice = chatNode('label', 'priority-choice-label');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'priority-choice';
+            checkbox.checked = true;
+            checkbox.dataset.reportId = String(report.id);
+            checkbox.setAttribute('aria-label', 'Zatwierdź priorytet zgłoszenia #' + report.id);
+            const text = chatNode('span', '', 'Zatwierdź tę propozycję');
+            choice.append(checkbox, text);
+            card.append(choice);
+            choices.set(report.id, {checkbox, text, card});
+        }
         const details=chatNode('dl','analysis-details');
-        for(const [name,value] of [['Kategoria',report.category],['Adres',report.address],['Status',report.status]]){
+        for(const [name,value] of [['Kategoria',report.category],['Adres',report.address],['Status',report.status],['Zapisany priorytet',reportPriorityLabel(report.current_priority)]]){
             const row=chatNode('div','');
             row.append(chatNode('dt','',name),chatNode('dd','',value||'Brak danych'));
             details.append(row);
@@ -335,7 +422,86 @@ function addChatAnalysis(result,label){
         }
         cards.append(card);
     }
-    element.append(chatNode('p','analysis-note','Sugerowane priorytety AI. Decyzję podejmuje administrator.'),cards);
+    element.append(chatNode('p','analysis-note','Zaznacz propozycje, które zatwierdzasz. Niezatwierdzone priorytety pozostaną bez zmian.'),cards);
+    if (canApprove) {
+        const approved = new Set();
+        let busy = false;
+        const selectionBar = chatNode('div', 'priority-selection-toolbar');
+        const summary = chatNode('p', 'priority-selection-summary');
+        summary.setAttribute('role', 'status');
+        const toggles = chatNode('div', 'priority-selection-toggles');
+        const selectAll = chatNode('button', 'link priority-select-all', 'Zaznacz wszystkie');
+        const clearAll = chatNode('button', 'link priority-clear-all', 'Odznacz wszystkie');
+        selectAll.type = clearAll.type = 'button';
+        toggles.append(selectAll, clearAll);
+        selectionBar.append(summary, toggles);
+        cards.before(selectionBar);
+        const actions = chatNode('div', 'priority-apply-actions');
+        const saveButtons = chatNode('div', 'priority-save-buttons');
+        const selectedButton = chatNode('button', 'primary priority-apply');
+        const allButton = chatNode('button', 'ghost priority-apply-all');
+        selectedButton.type = allButton.type = 'button';
+        const feedback = chatNode('p', 'priority-apply-feedback', 'Propozycja jest ważna przez 30 minut.');
+        feedback.setAttribute('role', 'status');
+
+        function remainingIds() { return reports.filter(report => !approved.has(report.id)).map(report => report.id); }
+        function selectedIds() { return remainingIds().filter(id => choices.get(id).checkbox.checked); }
+        function updateControls() {
+            actions.setAttribute('aria-busy', String(busy));
+            selectionBar.setAttribute('aria-busy', String(busy));
+            const remaining = remainingIds().length;
+            const selected = selectedIds().length;
+            for (const [id, choice] of choices) {
+                const saved = approved.has(id);
+                choice.checkbox.disabled = busy || saved;
+                if (saved) choice.checkbox.checked = true;
+                choice.text.textContent = saved ? 'Priorytet zapisany' : 'Zatwierdź tę propozycję';
+                choice.card.classList.toggle('priority-approved', saved);
+            }
+            summary.textContent = 'Zapisane: ' + approved.size + ' / ' + reports.length + '. Wybrane: ' + selected + '.';
+            selectedButton.disabled = busy || !selected;
+            allButton.disabled = busy || !remaining;
+            selectAll.disabled = clearAll.disabled = busy || !remaining;
+            selectedButton.textContent = remaining ? 'Zapisz wybrane (' + selected + ')' : 'Priorytety zapisane';
+            allButton.textContent = remaining ? 'Zapisz wszystkie (' + remaining + ')' : 'Wszystkie zapisane';
+        }
+        async function approve(reportIds) {
+            if (busy || !reportIds.length) return;
+            busy = true;
+            updateControls();
+            feedback.textContent = 'Zapisywanie priorytetów…';
+            feedback.classList.remove('priority-apply-error');
+            try {
+                // A separate endpoint makes an older backend fail safely instead
+                // of ignoring this selection and applying the entire proposal.
+                const response = await api('/api/ai/priorities/apply-selected', {
+                    proposal_token: result.proposal_token, report_ids: reportIds,
+                });
+                const saved = await response.json();
+                if (!response.ok) throw new Error(saved.error || 'Nie udało się zapisać priorytetów.');
+                if (!Array.isArray(saved.approved_ids)) throw new Error('Nie udało się odczytać potwierdzenia zapisu.');
+                for (const id of saved.approved_ids) if (choices.has(id)) approved.add(id);
+                feedback.textContent = saved.already_applied ? 'Te propozycje zostały już zapisane. Nie nadpisano późniejszych zmian.'
+                    : 'Zapisano priorytety zgłoszeń: ' + saved.newly_applied_count + '. Inne zgłoszenia nie zostały zmienione.';
+                await load();
+            } catch (error) {
+                feedback.textContent = error instanceof TypeError ? 'Nie można połączyć się z aplikacją. Spróbuj ponownie.' : error.message;
+                feedback.classList.add('priority-apply-error');
+            } finally {
+                busy = false;
+                updateControls();
+            }
+        }
+        selectAll.onclick = () => { for (const id of remainingIds()) choices.get(id).checkbox.checked = true; updateControls(); };
+        clearAll.onclick = () => { for (const id of remainingIds()) choices.get(id).checkbox.checked = false; updateControls(); };
+        for (const choice of choices.values()) choice.checkbox.addEventListener('change', updateControls);
+        selectedButton.onclick = () => approve(selectedIds());
+        allButton.onclick = () => approve(remainingIds());
+        updateControls();
+        saveButtons.append(selectedButton, allButton);
+        actions.append(saveButtons, feedback);
+        element.append(actions);
+    }
     element.scrollIntoView({block:'start'});
     return result.summary+'\n'+reports.map(report=>`#${report.id} — ${chatPriorities[report.priority].label}: ${report.reason}${Array.isArray(report.similar_to)?' Podobne: '+report.similar_to.map(id=>`#${id}`).join(', '):''}`).join('\n');
 }
@@ -348,7 +514,7 @@ function resetChat(){
     $('#chat-status').textContent='Przy każdym pytaniu pobieram aktualne dane wszystkich zgłoszeń.';
     $('#chat-input').focus();
 }
-async function sendChat(message,mode='chat'){
+async function sendChat(message,mode='chat',reportIds){
     if(chatBusy||state.user?.role!=='Administrator')return;
     const input=$('#chat-input');
     const question=message.trim();
@@ -362,7 +528,7 @@ async function sendChat(message,mode='chat'){
     const pending=addChatMessage('bot',mode==='prioritize'?'Ustalam sugerowane priorytety nierozwiązanych zgłoszeń…':'Analizuję aktualne zgłoszenia…','Asystent CityReport');
     $('#chat-messages').setAttribute('aria-busy','true');
     try{
-        const response=await api('/api/ai/chat',{message:question,history:chatHistory.slice(-12),mode});
+        const response=await api('/api/ai/chat',{message:question,history:chatHistory.slice(-12),mode,...(reportIds?{report_ids:reportIds}:{})});
         if(response.status===401)throw new Error('Sesja wygasła. Zaloguj się ponownie.');
         let result;
         try{result=await response.json()}catch{throw new Error('Serwer zwrócił nieprawidłową odpowiedź. Spróbuj ponownie.')}
@@ -385,7 +551,7 @@ async function sendChat(message,mode='chat'){
         const message=error instanceof TypeError?'Nie można połączyć się z aplikacją. Sprawdź połączenie i spróbuj ponownie.':error.message;
         addChatMessage('bot',`${message} Możesz ponowić pytanie.`, 'Nie udało się odpowiedzieć');
         input.value=question;
-        chatRetry={question,mode};
+        chatRetry={question,mode,reportIds};
     }finally{
         chatBusy=false;
         $('#chat-messages').setAttribute('aria-busy','false');
@@ -394,7 +560,7 @@ async function sendChat(message,mode='chat'){
         input.focus();
     }
 }
-$('#chat-form').onsubmit=event=>{event.preventDefault();const question=$('#chat-input').value;sendChat(question,chatRetry?.question===question.trim()?chatRetry.mode:'chat')};
+$('#chat-form').onsubmit=event=>{event.preventDefault();const question=$('#chat-input').value;const retry=chatRetry?.question===question.trim()?chatRetry:null;sendChat(question,retry?.mode||'chat',retry?.reportIds)};
 $$('[data-chat-prompt]').forEach(button=>button.onclick=()=>sendChat(button.dataset.chatPrompt,button.dataset.chatMode||'chat'));
 $('#chat-reset').onclick=resetChat;
 load();
