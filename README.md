@@ -18,6 +18,12 @@ All blue **CR** logo badges use a fixed 32 × 32 px square with the original rou
 
 Use the icon button on the sidebar itself: **Zwiń panel boczny** (Collapse sidebar) reduces navigation to a narrow, 44-pixel strip and expands the page content. The button stays on that strip as **Rozwiń panel boczny** (Expand sidebar), so you can restore the full panel. Navigation and profile controls are hidden while collapsed; the strip and its toggle remain visible. It works in resident and administrator views, including on narrow screens, and supports Enter or Space. Your choice is remembered in this browser when local storage is available. Maps automatically resize without changing the zoom level.
 
+## Responsive layout
+
+Resident and administrator pages fill the available width beside the sidebar, including on ultrawide monitors. Tablet and mobile layouts use smaller page padding and stack panels vertically. Collapsing or expanding the sidebar adjusts the content and map widths automatically.
+
+To verify, resize the browser to 390, 950, 1440, 2560, and 3840 px in both sidebar states. Check the resident dashboard, administrator dashboard, city correspondence, AI assistant, and report details: content should extend to the right page padding, with wide tables scrolling inside their panels.
+
 ## Categories
 
 The administrator's **Kategorie** panel is read-only: it shows category names and report counts, with no category editing controls. Default names and colors are defined in `DEFAULT_CATEGORIES` in `app.py`. Every startup adds missing names to both new and existing databases, preserving existing category IDs, colors, custom categories, and report assignments. Restart the backend after adding a default, then refresh the page. Editing or removing a definition does not rename or remove an existing category or change its color.
@@ -56,6 +62,8 @@ In the report form, enter a street and city, click **Szukaj** (Search), and choo
 In report details, **Otwórz lokalizację na mapie** opens an interactive map inside CityReport. Close it with the close button or Esc to return to the report.
 
 The administrator map includes reports from all residents. Pins show report status; a numbered pin groups reports at identical coordinates. Nearby points with different coordinates remain separate pins. Click a pin to open its report list, or **Pokaż wszystkie** to fit all reports. Reports without coordinates are listed below the map. Saved priorities appear in report popups.
+
+The dashboard map grows with window height: 65% of the viewport height on desktop (420–900 px), and 60% on screens up to 650 px wide (360–520 px). Resize the window vertically to check the height adjustment; map controls and markers remain usable after resizing or toggling the sidebar.
 
 Map tiles come from OpenStreetMap. The backend sends address searches and selected points to Photon. Set `CITYREPORT_PHOTON_URL` to use your own Photon instance.
 

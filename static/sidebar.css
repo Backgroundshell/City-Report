@@ -26,7 +26,7 @@
 .sidebar-toggle:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
 body.sidebar-collapsed #app-sidebar { width: 44px; padding: 0; }
 body.sidebar-collapsed #app-sidebar .sidebar-toggle { right: 4px; }
-body.sidebar-collapsed main { margin-left: 44px; max-width: none; }
+body.sidebar-collapsed main { margin-left: 44px; }
 @media (max-width: 950px) {
     .sidebar-content { padding-top: 52px; }
     #app-sidebar .brand { justify-content: center; padding-left: 0; padding-right: 0; }

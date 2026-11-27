@@ -47,7 +47,7 @@
     background: #eaf0f2;
     isolation: isolate;
 }
-#admin-map { height: clamp(320px, 48vh, 520px); }
+#admin-map { height: clamp(420px, 65vh, 900px); }
 #location-map { height: clamp(210px, 34vh, 300px); }
 #admin-map:focus, #location-map:focus, #report-location-map:focus { outline: none; }
 #admin-map:focus-visible, #location-map:focus-visible, #report-location-map:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
@@ -197,7 +197,7 @@
     .map-heading h3 { font-size: 1rem; }
     .map-fit-button { width: 44px; padding: 10px; }
     .map-fit-button span { display: none; }
-    #admin-map { height: 360px; }
+    #admin-map { height: clamp(360px, 60vh, 520px); }
     .map-legend { gap: 10px 14px; }
     .map-legend li { font-size: .8125rem; }
     .location-picker { padding: 12px; }
