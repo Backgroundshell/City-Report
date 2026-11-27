@@ -17,9 +17,32 @@ Po aktualizacji backendu uruchom proces Pythona ponownie i odśwież przeglądar
 
 ## Panel boczny
 
-Niebieski znaczek logo **CR** ma stały kwadratowy rozmiar 32 × 32 px i wyśrodkowane inicjały, także na wąskich ekranach.
+Wszystkie niebieskie znaczki logo **CR** mają stały kwadratowy rozmiar 32 × 32 px, oryginalne zaokrąglone narożniki i wyśrodkowane inicjały na stronie logowania oraz w panelach bocznych mieszkańca i administratora, także na wąskich ekranach.
 
 Przycisk z ikoną znajduje się na samym panelu: **Zwiń panel boczny** zmniejsza nawigację do wąskiego paska o szerokości 44 pikseli i zwiększa miejsce na zawartość. Na pasku pozostaje przycisk **Rozwiń panel boczny**, którym przywrócisz pełny panel. Po zwinięciu nawigacja i profil są ukryte, ale pasek oraz jego przycisk pozostają widoczne. Działa to w strefie mieszkańca i administratora, także na małych ekranach; można użyć klawisza Enter lub Spacja. Wybór jest zapamiętywany w tej przeglądarce, jeśli dostępny jest zapis lokalny. Mapy automatycznie dopasowują rozmiar, zachowując poziom przybliżenia.
+
+## Kategorie
+
+Panel administratora **Kategorie** służy tylko do odczytu: pokazuje nazwy kategorii i liczbę zgłoszeń, bez kontrolek edycji kategorii. Domyślne nazwy i kolory są zdefiniowane w `DEFAULT_CATEGORIES` w pliku `app.py`. Przy każdym uruchomieniu brakujące nazwy są dodawane zarówno do nowej, jak i istniejącej bazy, z zachowaniem identyfikatorów i kolorów istniejących kategorii, własnych kategorii oraz przypisania zgłoszeń. Po dodaniu kategorii domyślnej uruchom backend ponownie i odśwież stronę. Edycja lub usunięcie definicji nie zmienia nazwy ani koloru istniejącej kategorii i jej nie usuwa.
+
+Dotychczasowa kategoria **Droga i chodnik** jest migrowana do osobnych kategorii **Droga** i **Chodnik**. Zgłoszenia, których tytuły jednoznacznie wskazują chodnik lub trotuar, trafiają do kategorii **Chodnik**; opis jest sprawdzany, gdy tytuł nie wskazuje ani drogi, ani chodnika. Zgłoszenia wspominające oba rodzaje miejsc lub żaden z nich pozostają w kategorii **Droga**. Dotychczasowe przypisania do osobnych kategorii pozostają bez zmian. Identyfikatory i pozostałe dane zgłoszeń są zachowane.
+
+| Kategoria | Przykłady |
+| --- | --- |
+| Droga | Dziury w jezdni, uszkodzona nawierzchnia drogowa |
+| Chodnik | Nierówne płyty, uszkodzona nawierzchnia chodnika |
+| Oświetlenie | Niedziałające latarnie |
+| Czystość | Śmieci, przepełnione kosze, dzikie wysypiska |
+| Zieleń | Uszkodzone drzewa, zaniedbane tereny zielone |
+| Oznakowanie i sygnalizacja | Uszkodzone znaki, niesprawne światła drogowe |
+| Parkowanie | Zastawione chodniki, uszkodzona infrastruktura parkingowa |
+| Transport publiczny | Uszkodzone przystanki, wiaty, tablice z rozkładem jazdy |
+| Infrastruktura rowerowa | Uszkodzone drogi rowerowe i stojaki |
+| Mała architektura | Zniszczone ławki, słupki, elementy wyposażenia przestrzeni publicznej |
+| Place zabaw i rekreacja | Uszkodzone urządzenia na placach zabaw i siłowniach plenerowych |
+| Inne | Problemy niepasujące do pozostałych kategorii |
+
+Endpoint `POST /api/categories`, dostępny wyłącznie dla administratora, nadal przyjmuje `name` i opcjonalny `color`; jego uprawnienia i działanie pozostają bez zmian.
 
 ## Sortowanie zgłoszeń administratora
 
@@ -60,6 +83,20 @@ W sprawie zapiszesz kolejne wiadomości i ręcznie dodasz **Odpowiedź służb (
 To lokalny tryb demonstracyjny: wiadomości nie są wysyłane do urzędu, a odpowiedzi nie pochodzą z zewnętrznej usługi. Dostęp do widoku i endpointów `/api/city/` mają wyłącznie administratorzy. Historia, autorzy wpisów i zmiany etapów są zapisywane w bazie oraz dzienniku operacji. Usunięcie zgłoszenia usuwa też jego sprawę i wiadomości.
 
 Po aktualizacji uruchom ponownie `python app.py` i odśwież stronę. Przy starcie aplikacja dodaje potrzebne tabele bez usuwania istniejących zgłoszeń i kont.
+
+## Zgłoszenia testowe dla asystenta AI
+
+Aby dodać powtarzalny zestaw 150 fikcyjnych zgłoszeń do istniejącej bazy:
+
+```powershell
+python dev.py seed-chat-reports
+```
+
+Zestaw obejmuje wszystkie 12 skonfigurowanych kategorii domyślnych: 70 zgłoszeń ma status Nowe, 40 W toku, a 40 Rozwiązane. Zawiera 30 grup po cztery powiązane zgłoszenia oraz 30 odrębnych problemów w tych samych kategoriach, aby analiza podobieństwa nie opierała się tylko na kategorii. Opisy dotyczą pilnych zagrożeń, zwykłych napraw i drobnych usterek estetycznych. Daty obejmują około trzech miesięcy; krakowskie adresy i punkty na mapie są ilustracyjne i nie opisują rzeczywistych zdarzeń. Zgłoszenia nie mają zdjęć i zaczynają z domyślnym priorytetem Średni, aby można było ocenić propozycje AI.
+
+Tytuły mają znaczniki od **[TEST AI 001]** do **[TEST AI 150]**. Zgłoszenia należą do pierwszego istniejącego konta mieszkańca. Istniejące zgłoszenia, konta, kategorie i korespondencja miejska pozostają zachowane. Ponowne wykonanie polecenia dodaje tylko brakujące znaczniki i zachowuje zmiany istniejących wpisów testowych, w tym priorytety zapisane przez AI. Definicje zestawu znajdują się w pliku `chat_report_fixtures.py`; utworzenie wpisów jest odnotowywane w dzienniku operacji.
+
+Odśwież aplikację i otwórz **Asystenta AI**. Wybierz **Zaproponuj priorytety** lub wpisz np. „Podsumuj zgłoszenia według kategorii i statusu”, „Które nierozwiązane zgłoszenia stwarzają zagrożenie dla dzieci?” albo „Pokaż podobne nierozwiązane zgłoszenia i zaproponuj priorytety”.
 
 ## Usuwanie zgłoszeń w środowisku deweloperskim
 
@@ -154,6 +191,7 @@ Sprawdzenie w przeglądarce:
 6. Przy zatrzymanym serwerze LM Studio sprawdź czytelny błąd i możliwość ponowienia analizy. Testy automatyczne obejmują również błędny JSON, brakujące wyniki, nieznane numery, wszystkie priorytety, pustą listę i błędy autoryzacji.
 7. Wpisz „give me only simular reports and add priorityes for them”. Wynik powinien zawierać wyłącznie potwierdzone pary lub grupy, priorytet każdego wyniku, powiązane numery i fragmenty opisów. Gdy brakuje danych lub podobieństw, powinien pojawić się komunikat zamiast przypadkowych grup kategorii.
 8. W tabeli **Wszystkie zgłoszenia** sprawdź oba kierunki dla każdego pola sortowania. Zmień status lub priorytet podczas sortowania według tego pola i potwierdź, że aktualizowane jest właściwe zgłoszenie, które trafia na odpowiednie miejsce. Sprawdź kontrolkę sortowania przy szerokości 390 px i upewnij się, że linki zgłoszeń nadal otwierają właściwe szczegóły.
+9. Otwórz **Zgłoś problem** i sprawdź, czy lista zawiera skonfigurowane kategorie domyślne, w tym osobne opcje **Droga** i **Chodnik**. Wyślij zgłoszenie w każdej z nich i sprawdź jej nazwę w szczegółach oraz na liście kategorii administratora, która służy tylko do odczytu. Uruchom backend ponownie i upewnij się, że kategorie się nie duplikują, nie ma dawnej opcji **Droga i chodnik**, a migrowane zgłoszenia zachowują identyfikatory i treść.
 
 Po aktualizacji backendu uruchom ponownie `python app.py` i odśwież stronę. Zasoby czatu mają wersjonowane adresy, a serwer wymaga ponownej walidacji pamięci podręcznej, aby przeglądarka pobierała aktualny renderer.
 

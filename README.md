@@ -14,9 +14,32 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000/). Restart the Python process
 
 ## Sidebar
 
-The blue **CR** logo badge is a fixed 32 × 32 px square with centered initials, including on narrow screens.
+All blue **CR** logo badges use a fixed 32 × 32 px square with the original rounded corners and centered initials on the login page and in the resident and administrator sidebars, including on narrow screens.
 
 Use the icon button on the sidebar itself: **Zwiń panel boczny** (Collapse sidebar) reduces navigation to a narrow, 44-pixel strip and expands the page content. The button stays on that strip as **Rozwiń panel boczny** (Expand sidebar), so you can restore the full panel. Navigation and profile controls are hidden while collapsed; the strip and its toggle remain visible. It works in resident and administrator views, including on narrow screens, and supports Enter or Space. Your choice is remembered in this browser when local storage is available. Maps automatically resize without changing the zoom level.
+
+## Categories
+
+The administrator's **Kategorie** panel is read-only: it shows category names and report counts, with no category editing controls. Default names and colors are defined in `DEFAULT_CATEGORIES` in `app.py`. Every startup adds missing names to both new and existing databases, preserving existing category IDs, colors, custom categories, and report assignments. Restart the backend after adding a default, then refresh the page. Editing or removing a definition does not rename or remove an existing category or change its color.
+
+The former **Droga i chodnik** category is migrated into separate **Droga** and **Chodnik** categories. Reports whose titles clearly mention a pavement or sidewalk move to **Chodnik**; the description is checked when the title identifies neither a road nor a sidewalk. Reports mentioning both or neither remain under **Droga**. Existing reports already assigned to either separate category are kept there. Report IDs and other report data are preserved.
+
+| Category | Examples |
+| --- | --- |
+| Droga | Potholes, damaged road surfaces |
+| Chodnik | Uneven paving slabs, damaged pavements |
+| Oświetlenie | Broken streetlights |
+| Czystość | Litter, overflowing bins, illegal dumping |
+| Zieleń | Damaged trees, neglected green areas |
+| Oznakowanie i sygnalizacja | Damaged signs, faulty traffic lights |
+| Parkowanie | Blocked pavements, damaged parking facilities |
+| Transport publiczny | Damaged stops, shelters, timetable boards |
+| Infrastruktura rowerowa | Damaged cycle paths and bicycle racks |
+| Mała architektura | Broken benches, bollards, public fixtures |
+| Place zabaw i rekreacja | Damaged playground and outdoor exercise equipment |
+| Inne | Problems outside the listed categories |
+
+The administrator-only `POST /api/categories` endpoint remains available with a `name` and optional `color`; its permissions and behavior are unchanged.
 
 ## Administrator report sorting
 
@@ -57,6 +80,20 @@ Administrators have a **Kontakt z miastem** view. Select **Nowa sprawa**, choose
 Save follow-up messages or manually record an **Odpowiedź służb (demo)**. Cases can be reassigned to another service and moved between **Otwarta**, **W realizacji**, and **Zakończona**. These stages synchronize in both directions with report statuses **Nowe**, **W toku**, and **Rozwiązane**. The list supports search and stage filters, and correspondence survives refreshes.
 
 This is a local demonstration: messages are not delivered to a city office, and replies do not come from an external service. Only administrators can access the view or `/api/city/` endpoints. Message authors, service history, and repair-stage changes are recorded. Deleting a report also removes its city case and messages.
+
+## AI chatbot test reports
+
+To add a repeatable set of 150 fictional reports to the existing database:
+
+```powershell
+python dev.py seed-chat-reports
+```
+
+The set covers all 12 configured default categories, with 70 New, 40 In progress, and 40 Resolved reports. It contains 30 groups of four related reports plus 30 distinct issues in the same categories, so similarity checks cannot rely on category alone. Descriptions include urgent hazards, routine maintenance, and minor cosmetic issues. Dates span roughly three months; Kraków addresses and map positions are illustrative, not claims about real incidents. Reports have no photos and start with the default Medium priority so you can review the AI's own suggestions.
+
+Titles carry markers **[TEST AI 001]** through **[TEST AI 150]**. The first existing resident account owns the reports. Existing reports, accounts, categories, and city correspondence are preserved. Running the command again adds only missing markers and keeps edits to existing test entries, including saved AI priorities. Dataset definitions are in `chat_report_fixtures.py`; creation is recorded in the audit log.
+
+Refresh the application and open **Asystent AI**. Try **Zaproponuj priorytety**, or questions such as “Podsumuj zgłoszenia według kategorii i statusu”, “Które nierozwiązane zgłoszenia stwarzają zagrożenie dla dzieci?” and “Pokaż podobne nierozwiązane zgłoszenia i zaproponuj priorytety”.
 
 ## Development cleanup commands
 
@@ -148,6 +185,7 @@ Browser checks:
 6. Test photo suggestions with the vision model and chat/priority analysis with the chat model.
 7. Stop the model server and verify that a failed analysis preserves saved priorities and can be retried.
 8. In **Wszystkie zgłoszenia**, check both directions for each sort field. Change a status or priority while sorting by that field and confirm the correct report is updated and moves to its new position. Check the sorting control at 390 px and verify that report links still open the correct details.
+9. Open **Zgłoś problem** and check that the category selector includes the configured default categories, with separate **Droga** and **Chodnik** options. Submit a report in each and verify its label in report details and the administrator's read-only category list. Restart the backend and check that categories are not duplicated, the old **Droga i chodnik** option is absent, and migrated reports keep their IDs and content.
 
 Static assets have versioned URLs and require cache revalidation. Restart the backend and refresh the browser after updates.
 

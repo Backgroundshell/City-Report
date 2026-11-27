@@ -348,7 +348,7 @@ function reportModal(){ $('#modal-body').innerHTML=`<div class="modal-inner"><sm
         updateButtons();
     });
 }
-$('#hero-report').onclick=reportModal;$('#my-report-button').onclick=reportModal;$('#add-category').onclick=()=>{let name=prompt('Nazwa nowej kategorii:');if(name)api('/api/categories',{name}).then(()=>{toast('Kategoria dodana');load()})};
+$('#hero-report').onclick=reportModal;$('#my-report-button').onclick=reportModal;
 let chatHistory=[];
 let chatBusy=false;
 let chatRetry=null;

@@ -1,15 +1,6 @@
 #app-sidebar { z-index: 10; }
 .sidebar-content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 #app-sidebar .brand { padding-right: 44px; }
-#app-sidebar .brand b {
-    display: grid;
-    place-items: center;
-    flex: 0 0 32px;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    line-height: 1;
-}
 .sidebar-toggle {
     position: absolute;
     top: 20px;

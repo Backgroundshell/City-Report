@@ -33,6 +33,21 @@ SESSION_SECONDS = 12 * 60 * 60
 CHAT_MESSAGE_LIMIT = 2000
 CHAT_HISTORY_LIMIT = 12
 PRIORITIES = priorities.VALUES
+# Startup adds missing names without replacing existing categories or their IDs/colors.
+DEFAULT_CATEGORIES = (
+    ("Droga", "#2f80ed"),
+    ("Oświetlenie", "#f2b84b"),
+    ("Czystość", "#34b27b"),
+    ("Zieleń", "#8c6ee7"),
+    ("Chodnik", "#38bdf8"),
+    ("Oznakowanie i sygnalizacja", "#dc6b32"),
+    ("Parkowanie", "#64748b"),
+    ("Transport publiczny", "#0891b2"),
+    ("Infrastruktura rowerowa", "#0d9488"),
+    ("Mała architektura", "#b7791f"),
+    ("Place zabaw i rekreacja", "#db6b97"),
+    ("Inne", "#78716c"),
+)
 
 
 def report_request_mode(message, history):
@@ -269,6 +284,34 @@ def db() -> sqlite3.Connection:
 def log_event(c, kind, entity, entity_id, details):
     c.execute("INSERT INTO audit_log (event_type,entity,entity_id,details,created_at) VALUES (?,?,?,?,?)", (kind, entity, entity_id, details, now()))
 
+def seed_categories(connection):
+    legacy = connection.execute("SELECT id FROM categories WHERE name='Droga i chodnik'").fetchone()
+    road = connection.execute("SELECT id FROM categories WHERE name='Droga'").fetchone()
+    if legacy and not road:
+        connection.execute("UPDATE categories SET name='Droga' WHERE id=?", (legacy["id"],))
+    connection.executemany("INSERT INTO categories(name,color) VALUES(?,?) ON CONFLICT(name) DO NOTHING",
+                           DEFAULT_CATEGORIES)
+    if not legacy:
+        return
+    road = connection.execute("SELECT id FROM categories WHERE name='Droga'").fetchone()
+    sidewalk = connection.execute("SELECT id FROM categories WHERE name='Chodnik'").fetchone()
+    if not road or not sidewalk:
+        return
+    sidewalk_words = r"\b(?:chodnik\w*|trotuar\w*)\b"
+    road_words = r"\b(?:jezdni\w*|drog\w*|asfalt\w*|szos\w*)\b"
+    reports = connection.execute("SELECT id,title,description FROM reports WHERE category_id=?",
+                                 (legacy["id"],)).fetchall()
+    for report in reports:
+        title = report["title"].casefold()
+        text = title if re.search(sidewalk_words, title) or re.search(road_words, title) else report["description"].casefold()
+        is_sidewalk = re.search(sidewalk_words, text) and not re.search(road_words, text)
+        category_id = sidewalk["id"] if is_sidewalk else road["id"]
+        if category_id != legacy["id"]:
+            connection.execute("UPDATE reports SET category_id=? WHERE id=?", (category_id, report["id"]))
+    if legacy["id"] != road["id"]:
+        connection.execute("DELETE FROM categories WHERE id=?", (legacy["id"],))
+
+
 def init_db():
     with db() as c:
         c.executescript("""
@@ -306,9 +349,9 @@ def init_db():
             c.execute("""UPDATE reports SET description_source='ai' WHERE EXISTS (
                 SELECT 1 FROM audit_log a WHERE a.entity='report' AND a.entity_id=reports.id
                 AND a.event_type='CREATE' AND a.details LIKE 'Utworzono zgłoszenie „%” z opisem AI')""")
+        seed_categories(c)
         if c.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
             c.executemany("INSERT INTO users(name,email,role) VALUES(?,?,?)", [("Anna Kowalska","anna@cityreport.local","Administrator"),("Jan Nowak","jan@cityreport.local","Mieszkaniec")])
-            c.executemany("INSERT INTO categories(name,color) VALUES(?,?)", [("Droga i chodnik","#2f80ed"),("Oświetlenie","#f2b84b"),("Czystość","#34b27b"),("Zieleń","#8c6ee7")])
             c.execute("INSERT INTO reports(user_id,category_id,title,description,address,latitude,longitude,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)",(2,1,"Duża dziura na jezdni","Uszkodzona nawierzchnia utrudnia przejazd rowerem.","ul. Chmielna 12",50.0618,19.9383,"W toku",now(),now()))
             c.execute("INSERT INTO reports(user_id,category_id,title,description,address,latitude,longitude,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)",(2,2,"Niedziałająca latarnia","Latarnia nie działa od kilku dni.","ul. Długa 7",50.0641,19.9368,"Nowe",now(),now()))
             log_event(c,"SYSTEM","database",None,"Utworzono dane demonstracyjne CityReport")

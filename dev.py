@@ -6,11 +6,13 @@ import sys
 from contextlib import closing
 
 import app
+import chat_report_fixtures
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Polecenia deweloperskie CityReport")
     commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("seed-chat-reports", help="Dodaj 150 fikcyjnych zgłoszeń do testowania asystenta AI")
     single = commands.add_parser("delete-report", help="Usuń jedno zgłoszenie wraz ze zdjęciem")
     single.add_argument("id", type=int, help="Numer zgłoszenia z panelu obsługi")
     commands.add_parser("delete-all-reports", help="Trwale usuń wszystkie zgłoszenia wraz ze zdjęciami")
@@ -26,7 +28,13 @@ def main(argv=None):
 
     try:
         with closing(app.db()) as connection, connection:
-            if args.command == "delete-all-reports":
+            if args.command == "seed-chat-reports":
+                connection.execute("BEGIN IMMEDIATE")
+                count = chat_report_fixtures.seed(connection, app.now())
+                message = f"Dodano zgłoszenia testowe AI ({count})." if count else "Wszystkie 150 zgłoszeń testowych AI już istnieje."
+                if count:
+                    app.log_event(connection, "SYSTEM", "database", None, message)
+            elif args.command == "delete-all-reports":
                 count = connection.execute("DELETE FROM reports").rowcount
                 message = f"Usunięto zgłoszenia ({count})." if count else "Lista zgłoszeń jest już pusta."
                 if count:
@@ -45,7 +53,7 @@ def main(argv=None):
             elif args.command == "clear-log":
                 count = connection.execute("DELETE FROM audit_log").rowcount
                 message = f"Usunięto wpisy z dziennika operacji ({count})." if count else "Dziennik operacji jest już pusty."
-    except sqlite3.Error as error:
+    except (sqlite3.Error, ValueError) as error:
         print(f"Nie udało się wykonać polecenia ({error}).", file=sys.stderr)
         return 1
     print(message)
